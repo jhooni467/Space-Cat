@@ -18,6 +18,9 @@
     this.ctx = canvas.getContext('2d');
     this.player = new SC.Player();
     this.particles = [];
+    this.rings = [];
+    this.subInput = Object.create(Input); // entrada sin "recién pulsado" para los sub-pasos
+    this.subInput.jumpPressed = false;
     this.t = 0;
     this.state = 'title';
     this.toast = null;
@@ -46,6 +49,7 @@
     this.player.reset(L.start.x, L.start.y);
     this.cam = 0;
     this.particles.length = 0;
+    this.rings.length = 0;
   };
 
   // Pausa real: la simulación (físicas, animaciones del mundo, tiempo) no avanza en 'paused'.
@@ -96,6 +100,8 @@
   };
 
   Game.prototype.updateParticles = function (dt) {
+    var r = this.rings;
+    for (var k = r.length - 1; k >= 0; k--) { r[k].age += dt; if (r[k].age > 0.4) r.splice(k, 1); }
     var list = this.particles;
     for (var i = list.length - 1; i >= 0; i--) {
       var q = list[i];
@@ -204,14 +210,29 @@
     var i;
     this.elapsed += dt;
 
-    L.update(dt, p);
-    p.update(dt, Input, L.solids, L.width);
-
-    if (p.justJumped) {
-      SC.Sfx.play('jump');
-      this.dust(p.x + p.w / 2, p.y + p.h, 5);
+    // Paso fijo: el salto mide lo mismo en pantallas de 30, 60, 120 o 144 Hz.
+    var steps = Math.max(1, Math.ceil(dt / C.STEP - 1e-6));
+    var sub = dt / steps;
+    var jumped = false, landed = false, dbl = false;
+    for (i = 0; i < steps; i++) {
+      L.update(sub, p);
+      p.update(sub, i === 0 ? Input : this.subInput, L.solids, L.width);
+      jumped = jumped || p.justJumped;
+      landed = landed || p.justLanded;
+      dbl = dbl || p.justDoubleJumped;
     }
-    if (p.justLanded) this.dust(p.x + p.w / 2, p.y + p.h, 6);
+
+    var fx = p.x + p.w / 2, fy = p.y + p.h;
+    if (jumped) {
+      SC.Sfx.play('jump');
+      this.dust(fx, fy, 5);
+    }
+    if (dbl) { // efecto del doble salto: anillo de luz + destellos
+      SC.Sfx.play('jump2');
+      this.rings.push({ x: fx, y: fy - 4, age: 0 });
+      this.burst(fx, fy - 4, 8, ['#fff6e6', '#ffd37d', '#ffffff'], 150, 0, true);
+    }
+    if (landed) this.dust(fx, fy, 6);
 
     var got = L.collectStars(p);
     for (i = 0; i < got.length; i++) {

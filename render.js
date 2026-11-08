@@ -367,6 +367,11 @@
     ctx.save();
     ctx.translate(cx, fy);
     ctx.scale(p.facing * sx, sy);
+    if (p.spin > 0) { // voltereta del doble salto
+      ctx.translate(0, -22);
+      ctx.rotate((1 - p.spin) * TAU);
+      ctx.translate(0, 22);
+    }
     var img = SC.Assets.get('cat');
     if (img) {
       var size = C.CAT_SPRITE;
@@ -428,6 +433,14 @@
       var a = L.asteroids[i];
       if (a.cx > left && a.cx < right) drawAsteroid(ctx, a);
     }
+    for (i = 0; i < g.rings.length; i++) { // anillos del doble salto
+      var rg = g.rings[i], k = rg.age / 0.4;
+      ctx.globalAlpha = 0.7 * (1 - k);
+      ctx.strokeStyle = '#fff6e6';
+      ctx.lineWidth = 3 * (1 - k) + 1;
+      ctx.beginPath(); ctx.ellipse(rg.x, rg.y, 10 + k * 30, 4 + k * 8, 0, 0, TAU); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
     drawParticles(ctx, g.particles);
     drawCat(ctx, g.player, g.t, g.state);
   }

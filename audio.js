@@ -34,6 +34,7 @@
 
   var SOUNDS = {
     jump: function () { tone(360, 0, 0.14, 'sine', 0.05, 640); },
+    jump2: function () { tone(520, 0, 0.12, 'sine', 0.05, 980); tone(780, 0.06, 0.14, 'triangle', 0.04); },
     star: function () { tone(880, 0, 0.09, 'triangle', 0.05); tone(1320, 0.07, 0.15, 'triangle', 0.05); },
     hurt: function () { tone(260, 0, 0.30, 'triangle', 0.07, 110); },
     check: function () { tone(660, 0, 0.12, 'sine', 0.05); tone(990, 0.10, 0.22, 'sine', 0.05); },

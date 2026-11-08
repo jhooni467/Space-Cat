@@ -30,6 +30,23 @@
     this.t = 0;
     this.justJumped = false;
     this.justLanded = false;
+    this.justDoubleJumped = false;
+    this.airJumps = C.AIR_JUMPS;
+    this.jumpV = C.JUMP_SPEED;
+    this.sinceJump = 1;
+    this.spin = 0;
+  };
+
+  // ¿Va a tocar suelo en menos de ~0.1 s? Entonces la pulsación se guarda y salta al aterrizar
+  // (en vez de gastar el doble salto justo antes de pisar).
+  Player.prototype.landingSoon = function (solids) {
+    if (this.vy <= 0) return false;
+    var limit = this.vy * 0.1 + 4, feet = this.y + this.h;
+    for (var i = 0; i < solids.length; i++) {
+      var s = solids[i], d = s.y - feet;
+      if (d >= -2 && d <= limit && this.x + this.w > s.x && this.x < s.x + s.w) return true;
+    }
+    return false;
   };
 
   Player.prototype.update = function (dt, inp, solids, levelWidth) {
@@ -37,11 +54,15 @@
     this.t += dt;
     this.justJumped = false;
     this.justLanded = false;
+    this.justDoubleJumped = false;
+    this.sinceJump += dt;
+    if (this.spin > 0) this.spin = Math.max(0, this.spin - dt / C.FLIP_TIME);
     if (this.invuln > 0) this.invuln -= dt;
 
     // Temporizadores de "margen" (hacen el salto más amable).
     this.coyote = this.onGround ? C.COYOTE_TIME : Math.max(0, this.coyote - dt);
     this.buffer = inp.jumpPressed ? C.JUMP_BUFFER : Math.max(0, this.buffer - dt);
+    if (this.onGround) this.airJumps = C.AIR_JUMPS;
 
     // Movimiento horizontal con aceleración suave.
     var dir = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
@@ -53,19 +74,37 @@
     this.vx += Math.abs(diff) <= step ? diff : (diff > 0 ? step : -step);
     if (dir !== 0) this.facing = dir;
 
-    // Salto.
-    if (this.buffer > 0 && this.coyote > 0) {
+    // Salto desde el suelo: pulsación guardada (buffer) o botón mantenido (salto automático al aterrizar).
+    if (this.coyote > 0 && (this.buffer > 0 || inp.jump)) {
       this.vy = -C.JUMP_SPEED;
+      this.jumpV = C.JUMP_SPEED;
       this.buffer = 0;
       this.coyote = 0;
+      this.sinceJump = 0;
       this.onGround = false;
       this.groundObj = null;
       this.justJumped = true;
+    } else if (this.buffer > 0 && this.airJumps > 0 && this.sinceJump > C.DOUBLE_GAP &&
+               !this.landingSoon(solids)) {
+      // Doble salto: solo con una pulsación nueva, no con el botón mantenido.
+      this.vy = -C.JUMP2_SPEED;
+      this.jumpV = C.JUMP2_SPEED;
+      this.airJumps -= 1;
+      this.buffer = 0;
+      this.sinceJump = 0;
+      this.spin = 1;
+      this.justDoubleJumped = true;
     }
 
-    // Gravedad (si sueltas el salto mientras subes, el salto se corta: control fino de la altura).
+    // Altura variable: soltar el botón corta la subida, pero un toque rápido siempre da un salto digno.
     var g = C.GRAVITY;
-    if (this.vy < 0 && !inp.jump) g *= C.JUMP_CUT;
+    if (this.vy < 0 && !inp.jump) {
+      var minV = this.jumpV * C.JUMP_MIN;
+      if (this.vy < -minV) this.vy = -minV;
+      g *= C.JUMP_CUT;
+    } else if (this.vy > 0) {
+      g *= C.FALL_MULT;
+    }
     this.vy = Math.min(this.vy + g * dt, C.MAX_FALL);
 
     // Mover en X y resolver.
