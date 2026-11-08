@@ -1,0 +1,132 @@
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #171a3d;
+  font-family: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+canvas {
+  display: block;
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- Controles táctiles ---------- */
+#touch {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 12px 22px calc(12px + env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+
+.pad {
+  display: flex;
+  gap: 14px;
+  pointer-events: auto;
+}
+
+.btn {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.38);
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff6e6;
+  font-size: 26px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.btn.big {
+  width: 96px;
+  height: 96px;
+  background: rgba(255, 176, 103, 0.34);
+  border-color: rgba(255, 214, 170, 0.6);
+}
+
+.btn.active {
+  background: rgba(255, 255, 255, 0.36);
+  transform: scale(0.95);
+}
+
+#pauseBtn {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.38);
+  background: rgba(24, 22, 64, 0.45);
+  color: #fff6e6;
+  font-size: 14px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ---------- Aviso para girar el dispositivo ---------- */
+#rotate {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #222a5e 0%, #4a4590 60%, #c98fb0 100%);
+  color: #fff6e6;
+  text-align: center;
+}
+
+.rotate-card {
+  padding: 24px;
+}
+
+.rotate-icon {
+  font-size: 64px;
+  display: inline-block;
+  animation: turn 2.4s ease-in-out infinite;
+}
+
+.rotate-card p {
+  font-size: 20px;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+@keyframes turn {
+  0%, 20% { transform: rotate(0deg); }
+  60%, 100% { transform: rotate(-90deg); }
+}
+
+@media (orientation: portrait) {
+  #rotate { display: flex; }
+}
