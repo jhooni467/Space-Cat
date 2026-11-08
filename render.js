@@ -105,7 +105,7 @@
     ctx.fill();
   }
 
-  function drawBackground(ctx, cam, t) {
+  function drawBackground(ctx, cam, t, theme) {
     var i;
     var img = SC.Assets.get('background');
     if (img) {
@@ -116,59 +116,7 @@
       return;
     }
 
-    var g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, COL.skyTop);
-    g.addColorStop(0.55, COL.skyMid);
-    g.addColorStop(1, COL.skyLow);
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-
-    // Resplandores suaves tipo nebulosa.
-    glow(ctx, 230 - cam * 0.04, 150, 280, '255,170,190', 0.14);
-    glow(ctx, 720 - cam * 0.05, 260, 320, '150,170,255', 0.12);
-
-    // Estrellitas titilantes.
-    for (i = 0; i < bgStars.length; i++) {
-      var s = bgStars[i];
-      var sx = (((s.x - cam * s.p) % W) + W) % W;
-      ctx.globalAlpha = 0.45 + 0.45 * Math.sin(t * s.sp + s.ph);
-      ctx.fillStyle = '#fff6e6';
-      ctx.beginPath();
-      ctx.arc(sx, s.y, s.r, 0, TAU);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-
-    // Luna.
-    var mx = 150 - cam * 0.03, my = 96;
-    glow(ctx, mx, my, 90, '255,240,215', 0.22);
-    ctx.fillStyle = '#fff1d9';
-    ctx.beginPath(); ctx.arc(mx, my, 28, 0, TAU); ctx.fill();
-    ctx.fillStyle = 'rgba(214,190,170,0.5)';
-    ctx.beginPath(); ctx.arc(mx - 9, my - 6, 6, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.arc(mx + 10, my + 8, 4, 0, TAU); ctx.fill();
-
-    // Planeta con anillo.
-    var px = 770 - cam * 0.06, py = 150;
-    ctx.save();
-    ctx.translate(px, py);
-    ctx.rotate(-0.35);
-    ctx.strokeStyle = 'rgba(255,226,200,0.45)';
-    ctx.lineWidth = 9;
-    ctx.beginPath(); ctx.ellipse(0, 0, 112, 28, 0, Math.PI, TAU); ctx.stroke();
-    var pg = ctx.createRadialGradient(-22, -24, 6, 0, 0, 72);
-    pg.addColorStop(0, '#f3d6ff');
-    pg.addColorStop(0.55, '#b79cff');
-    pg.addColorStop(1, '#7f6ad0');
-    ctx.fillStyle = pg;
-    ctx.beginPath(); ctx.arc(0, 0, 66, 0, TAU); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,226,200,0.6)';
-    ctx.beginPath(); ctx.ellipse(0, 0, 112, 28, 0, 0, Math.PI); ctx.stroke();
-    ctx.restore();
-
-    // Colinas lejanas.
-    hills(ctx, cam, 0.2, 372, 30, COL.hillFar, 0.006, 0.013, 1.3);
-    hills(ctx, cam, 0.4, 418, 22, COL.hillMid, 0.009, 0.02, 4.1);
+    SC.Scenery.draw(ctx, cam, t, theme);
   }
 
   /* ---------- decoración ---------- */
@@ -254,39 +202,13 @@
       ctx.drawImage(img, gx - 60, GY - 160, 120, 160);
       return;
     }
-    var cy = GY - 88;
-    var pulse = 1 + Math.sin(t * 2.4) * 0.04;
-    // base
+    // base de ilustración + brillo suave + portal en pixel art
     ctx.fillStyle = COL.platBody;
     rr(ctx, gx - 54, GY - 6, 108, 10, 5); ctx.fill();
     ctx.fillStyle = COL.platTop;
     rr(ctx, gx - 54, GY - 6, 108, 5, 5); ctx.fill();
-    // brillo y portal
-    glow(ctx, gx, cy, 130, '159,232,208', 0.30);
-    ctx.save();
-    ctx.translate(gx, cy);
-    ctx.scale(pulse, pulse);
-    var pg = ctx.createRadialGradient(0, 0, 4, 0, 0, 62);
-    pg.addColorStop(0, 'rgba(255,246,230,0.95)');
-    pg.addColorStop(0.5, 'rgba(159,232,208,0.75)');
-    pg.addColorStop(1, 'rgba(183,156,255,0.55)');
-    ctx.fillStyle = pg;
-    ctx.beginPath(); ctx.ellipse(0, 0, 38, 66, 0, 0, TAU); ctx.fill();
-    // espiral suave
-    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    for (var i = 0; i < 3; i++) {
-      var a0 = t * 1.6 + i * TAU / 3;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 24, 46, 0, a0, a0 + 1.1);
-      ctx.stroke();
-    }
-    // aro
-    ctx.strokeStyle = COL.platTop;
-    ctx.lineWidth = 8;
-    ctx.beginPath(); ctx.ellipse(0, 0, 40, 68, 0, 0, TAU); ctx.stroke();
-    ctx.restore();
+    glow(ctx, gx, GY - 70, 130, '90,190,255', 0.28 + Math.sin(t * 2.4) * 0.04);
+    SC.Pixel.drawPortal(ctx, gx, GY - 4, t);
     drawSign(ctx, gx - 110, 'B');
   }
 
@@ -426,124 +348,8 @@
     ctx.stroke();
   }
 
-  /* ---------- el gato astronauta ---------- */
-  function drawCatShape(ctx, p, t, moving, air) {
-    var i;
-    var run = moving ? Math.sin(t * 16) : 0;
-    var bob = moving ? Math.abs(Math.sin(t * 16)) * 1.6 : Math.sin(t * 3) * 0.6;
-    ctx.translate(0, -bob);
-
-    // cola
-    var tw = Math.sin(t * (moving ? 10 : 3)) * 0.35;
-    var tipX = -18 + tw * 8;
-    var tipY = air ? -42 : -35;
-    ctx.strokeStyle = COL.cat;
-    ctx.lineWidth = 6;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-10, -12);
-    ctx.bezierCurveTo(-25, -10 + tw * 10, -27, -26, tipX, tipY);
-    ctx.stroke();
-    ctx.fillStyle = COL.cream;
-    ctx.beginPath(); ctx.arc(tipX, tipY, 3.6, 0, TAU); ctx.fill();
-
-    // patitas
-    var l1 = air ? -3 : run * 4;
-    var l2 = air ? 3 : -run * 4;
-    ctx.fillStyle = COL.catDark;
-    ellipse(ctx, -7 + l1, -3, 5, 4); ctx.fill();
-    ctx.fillStyle = COL.cat;
-    ellipse(ctx, 8 + l2, -3, 5, 4); ctx.fill();
-
-    // cuerpo y pancita
-    ctx.fillStyle = COL.cat;
-    ellipse(ctx, 0, -15, 13, 13); ctx.fill();
-    ctx.fillStyle = COL.cream;
-    ellipse(ctx, 3, -13, 7, 9); ctx.fill();
-    ctx.strokeStyle = COL.catDark;
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.moveTo(-10, -22); ctx.lineTo(-6, -20);
-    ctx.moveTo(-12, -16); ctx.lineTo(-8, -15);
-    ctx.moveTo(-11, -10); ctx.lineTo(-7, -10);
-    ctx.stroke();
-
-    // cuello del traje
-    ctx.fillStyle = COL.mint;
-    ellipse(ctx, 4, -21, 17, 4.5); ctx.fill();
-
-    // orejas
-    ctx.fillStyle = COL.cat;
-    ctx.beginPath(); ctx.moveTo(-7, -35); ctx.lineTo(-5, -49); ctx.lineTo(2, -42.5); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(15, -35); ctx.lineTo(13, -49); ctx.lineTo(6, -42.5); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#ffb3c1';
-    ctx.beginPath(); ctx.moveTo(-5, -37); ctx.lineTo(-4, -45); ctx.lineTo(0, -41); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(13, -37); ctx.lineTo(12, -45); ctx.lineTo(8, -41); ctx.closePath(); ctx.fill();
-
-    // cabeza
-    ctx.fillStyle = COL.cat;
-    ctx.beginPath(); ctx.arc(4, -31, 12, 0, TAU); ctx.fill();
-    ctx.strokeStyle = COL.catDark;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(4, -43); ctx.lineTo(4, -39);
-    ctx.moveTo(0, -42.5); ctx.lineTo(1, -39.5);
-    ctx.moveTo(8, -42.5); ctx.lineTo(7, -39.5);
-    ctx.stroke();
-
-    // cara
-    var blink = (t % 3.6) < 0.12;
-    ctx.fillStyle = COL.ink;
-    ellipse(ctx, -0.5, -31, 2, blink ? 0.5 : 2.8); ctx.fill();
-    ellipse(ctx, 9, -31, 2, blink ? 0.5 : 2.8); ctx.fill();
-    if (!blink) {
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(0.3, -32.2, 0.8, 0, TAU); ctx.fill();
-      ctx.beginPath(); ctx.arc(9.8, -32.2, 0.8, 0, TAU); ctx.fill();
-    }
-    ctx.fillStyle = 'rgba(255,140,150,0.45)';
-    ctx.beginPath(); ctx.arc(-3.5, -26, 2.6, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.arc(12.5, -26, 2.6, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#ff8fa3';
-    ctx.beginPath(); ctx.moveTo(3, -28.2); ctx.lineTo(6, -28.2); ctx.lineTo(4.5, -26.4); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = COL.ink;
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(1.5, -24.8);
-    ctx.quadraticCurveTo(3, -23.2, 4.5, -25.4);
-    ctx.quadraticCurveTo(6, -23.2, 7.5, -24.8);
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(-5, -27); ctx.lineTo(-11, -28.5);
-    ctx.moveTo(-5, -25.5); ctx.lineTo(-11, -25);
-    ctx.moveTo(14, -27); ctx.lineTo(20, -28.5);
-    ctx.moveTo(14, -25.5); ctx.lineTo(20, -25);
-    ctx.stroke();
-
-    // casco de astronauta (cristal)
-    var A1 = Math.PI * 0.85, A2 = Math.PI * 0.15;
-    ctx.fillStyle = 'rgba(200,232,255,0.20)';
-    ctx.beginPath(); ctx.arc(4, -32, 20, A1, A2); ctx.fill();
-    ctx.strokeStyle = 'rgba(235,245,255,0.9)';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.arc(4, -32, 20, A1, A2); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-    ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(4, -32, 15, Math.PI * 1.1, Math.PI * 1.45); ctx.stroke();
-
-    // antenita con lucecita
-    ctx.strokeStyle = COL.mint;
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(4, -52); ctx.lineTo(4, -58); ctx.stroke();
-    var pulse = 0.6 + 0.4 * Math.sin(t * 4);
-    glow(ctx, 4, -60, 12, '255,217,138', 0.55 * pulse);
-    ctx.fillStyle = COL.star;
-    ctx.beginPath(); ctx.arc(4, -60, 3, 0, TAU); ctx.fill();
-  }
-
-  function drawCat(ctx, p, t) {
+  /* ---------- el gato (la apariencia vive en js/skins.js) ---------- */
+  function drawCat(ctx, p, t, state) {
     if (p.invuln > 0 && Math.floor(p.invuln * 12) % 2 === 0) return; // parpadeo tras un golpe
     var cx = p.x + p.w / 2, fy = p.y + p.h;
     var moving = Math.abs(p.vx) > 30 && p.onGround;
@@ -566,7 +372,8 @@
       var size = C.CAT_SPRITE;
       ctx.drawImage(img, -size / 2, -size + 4, size, size);
     } else {
-      drawCatShape(ctx, p, t, moving, air);
+      var skin = SC.Skins.get(SC.Skins.current);
+      skin.draw(ctx, SC.Skins.poseOf(p, state), t);
     }
     ctx.restore();
   }
@@ -581,9 +388,8 @@
         starPath(ctx, q.x, q.y, q.size, q.life * 4);
         ctx.fill();
       } else {
-        ctx.beginPath();
-        ctx.arc(q.x, q.y, q.size, 0, TAU);
-        ctx.fill();
+        var sz = Math.max(2, Math.round(q.size / 2) * 2);
+        ctx.fillRect(Math.round(q.x), Math.round(q.y), sz, sz); // partícula pixelada
       }
     }
     ctx.globalAlpha = 1;
@@ -623,7 +429,7 @@
       if (a.cx > left && a.cx < right) drawAsteroid(ctx, a);
     }
     drawParticles(ctx, g.particles);
-    drawCat(ctx, g.player, g.t);
+    drawCat(ctx, g.player, g.t, g.state);
   }
 
   /* ---------- interfaz ---------- */
@@ -686,26 +492,25 @@
     dim(ctx, 0.5);
     glow(ctx, W / 2, 190, 280, '255,200,160', 0.22);
     ctx.font = '800 96px ' + FONT;
-    text(ctx, 'SpaceCat', W / 2 + 4, 154, 96, '800', 'rgba(30,20,70,0.55)');
+    text(ctx, 'Space Cat', W / 2 + 4, 154, 96, '800', 'rgba(30,20,70,0.55)');
     var gr = ctx.createLinearGradient(0, 110, 0, 200);
     gr.addColorStop(0, '#fff3d6');
     gr.addColorStop(1, '#ffb98a');
-    text(ctx, 'SpaceCat', W / 2, 150, 96, '800', gr);
-    text(ctx, 'Lleva al gatito astronauta del punto A al punto B', W / 2, 224, 24, '600', 'rgba(255,246,230,0.95)');
+    text(ctx, 'Space Cat', W / 2, 150, 96, '800', gr);
+    text(ctx, 'Lleva al gato del punto A al punto B', W / 2, 224, 24, '600', 'rgba(255,246,230,0.95)');
     var pulse = 0.65 + 0.35 * Math.sin(g.t * 3);
     ctx.globalAlpha = pulse;
     text(ctx, 'Pulsa Enter o toca la pantalla para empezar', W / 2, 300, 24, '700', COL.text);
     ctx.globalAlpha = 1;
     text(ctx, '← → mover   ·   Espacio / ↑ saltar   ·   P pausa   ·   M sonido', W / 2, 500, 17, '600', 'rgba(255,246,230,0.8)');
+    text(ctx, 'Beta ' + C.VERSION, W / 2, 262, 18, '700', 'rgba(255,246,230,0.75)');
     if (g.bestTime) {
       text(ctx, 'Mejor tiempo: ' + formatTime(g.bestTime), W / 2, 340, 18, '600', 'rgba(255,246,230,0.8)');
     }
   }
 
   function drawPause(ctx) {
-    dim(ctx, 0.5);
-    text(ctx, 'Pausa', W / 2, H / 2 - 20, 56, '800', COL.text);
-    text(ctx, 'Pulsa P o toca para continuar', W / 2, H / 2 + 34, 22, '600', 'rgba(255,246,230,0.9)');
+    dim(ctx, 0.5); // el menú de pausa es HTML (ver index.html / css)
   }
 
   function drawWin(ctx, g) {
@@ -739,11 +544,12 @@
     ctx.setTransform(k, 0, 0, k, 0, 0);
     ctx.clearRect(0, 0, W, H);
 
-    drawBackground(ctx, g.cam, g.t);
+    drawBackground(ctx, g.cam, g.t, g.level.theme);
     ctx.save();
     ctx.translate(-Math.round(g.cam), 0);
     drawWorld(ctx, g, g.cam);
     ctx.restore();
+    SC.Scenery.drawMotes(ctx, g.cam, g.t, g.level.theme);
 
     if (g.state !== 'title') drawHUD(ctx, g);
     if (g.state === 'title') drawTitle(ctx, g);

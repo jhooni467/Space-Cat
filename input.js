@@ -41,6 +41,8 @@
       }
     },
 
+    releaseAll: function () { releaseAll(); },
+
     // Se llama una vez al inicio de cada frame.
     poll: function () {
       Input.left = !!(keys.ArrowLeft || keys.KeyA || touch.left);

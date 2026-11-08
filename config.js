@@ -6,6 +6,7 @@
   var SC = global.SpaceCat = global.SpaceCat || {};
 
   SC.CONFIG = {
+    VERSION: '0.1',
     // Tamaño lógico del juego (formato horizontal 16:9). Se escala solo a la pantalla.
     WIDTH: 960,
     HEIGHT: 540,
@@ -39,13 +40,13 @@
       skyLow: '#c98fb0',
       hillFar: '#6d5ba6',
       hillMid: '#5a4b95',
-      groundTop: '#8fe0c0',
-      groundBody: '#4c4286',
-      groundDeep: '#38306b',
-      platTop: '#c3b3ff',
-      platBody: '#8e7cd8',
-      moverTop: '#9fe8d0',
-      moverBody: '#55b8a0',
+      groundTop: '#9ccf6a',
+      groundBody: '#35503a',
+      groundDeep: '#22362b',
+      platTop: '#ffc98a',
+      platBody: '#b8607c',
+      moverTop: '#ffe3a0',
+      moverBody: '#d8828a',
       spike: '#ff8c8c',
       spikeDark: '#e0687a',
       spikeLight: '#ffc7b8',

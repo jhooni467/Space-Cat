@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#222a5e">
   <meta name="description" content="SpaceCat: un gatito astronauta cruza de un punto A a un punto B esquivando obstáculos.">
-  <title>SpaceCat</title>
+  <title>Space Cat</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div id="stage">
-    <canvas id="game" aria-label="SpaceCat"></canvas>
+    <canvas id="game" aria-label="Space Cat"></canvas>
 
     <button id="pauseBtn" class="hidden" aria-label="Pausa">❚❚</button>
 
@@ -25,10 +25,18 @@
     </div>
   </div>
 
+  <div id="pauseMenu" class="hidden">
+    <div class="menu-card">
+      <h2>Pausa</h2>
+      <button class="menu-btn" data-menu="resume">Continuar</button>
+      <button class="menu-btn alt" data-menu="restart">Reiniciar nivel</button>
+    </div>
+  </div>
+
   <div id="rotate">
     <div class="rotate-card">
       <div class="rotate-icon">📱</div>
-      <p>Gira tu dispositivo<br>SpaceCat se juega en horizontal</p>
+      <p>Gira tu dispositivo.<br>Space Cat se juega en horizontal.</p>
     </div>
   </div>
 
@@ -38,6 +46,9 @@
   <script src="js/input.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/assets.js"></script>
+  <script src="js/skins.js"></script>
+  <script src="js/scenery.js"></script>
+  <script src="js/pixelart.js"></script>
   <script src="js/levels.js"></script>
   <script src="js/level.js"></script>
   <script src="js/player.js"></script>

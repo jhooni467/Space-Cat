@@ -16,6 +16,7 @@
 
   function Level(def) {
     this.name = def.name;
+    this.theme = def.theme;
     this.width = def.width;
     this.start = { x: def.start.x, y: GY - C.PLAYER_H };
     this.goal = { x: def.goal.x, w: 80 };

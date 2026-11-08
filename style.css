@@ -10,7 +10,7 @@ html, body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: #171a3d;
+  background: #2a1838;
   font-family: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
 }
 
@@ -37,24 +37,24 @@ canvas {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  padding: 12px 22px calc(12px + env(safe-area-inset-bottom));
+  padding: 2vmin calc(3vmin + env(safe-area-inset-right)) calc(2vmin + env(safe-area-inset-bottom)) calc(3vmin + env(safe-area-inset-left));
   pointer-events: none;
 }
 
 .pad {
   display: flex;
-  gap: 14px;
+  gap: clamp(10px, 2.4vmin, 22px);
   pointer-events: auto;
 }
 
 .btn {
-  width: 76px;
-  height: 76px;
+  width: clamp(58px, 15vmin, 112px);
+  height: clamp(58px, 15vmin, 112px);
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.38);
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(40, 20, 60, 0.30);
   color: #fff6e6;
-  font-size: 26px;
+  font-size: clamp(22px, 5vmin, 38px);
   line-height: 1;
   padding: 0;
   cursor: pointer;
@@ -63,8 +63,8 @@ canvas {
 }
 
 .btn.big {
-  width: 96px;
-  height: 96px;
+  width: clamp(74px, 20vmin, 144px);
+  height: clamp(74px, 20vmin, 144px);
   background: rgba(255, 176, 103, 0.34);
   border-color: rgba(255, 214, 170, 0.6);
 }
@@ -78,8 +78,8 @@ canvas {
   position: absolute;
   top: calc(10px + env(safe-area-inset-top));
   right: calc(12px + env(safe-area-inset-right));
-  width: 46px;
-  height: 46px;
+  width: clamp(40px, 9vmin, 64px);
+  height: clamp(40px, 9vmin, 64px);
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.38);
   background: rgba(24, 22, 64, 0.45);
@@ -101,7 +101,7 @@ canvas {
   z-index: 10;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #222a5e 0%, #4a4590 60%, #c98fb0 100%);
+  background: linear-gradient(180deg, #5c3f9a 0%, #c95a95 55%, #ffb36f 100%);
   color: #fff6e6;
   text-align: center;
 }
@@ -130,3 +130,51 @@ canvas {
 @media (orientation: portrait) {
   #rotate { display: flex; }
 }
+
+/* ---------- Menú de pausa ---------- */
+#pauseMenu {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(40, 18, 56, 0.55);
+}
+
+.menu-card {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 2vmin, 16px);
+  min-width: clamp(220px, 46vmin, 360px);
+  padding: clamp(14px, 4vmin, 30px);
+  border-radius: 26px;
+  border: 2px solid rgba(255, 220, 170, 0.45);
+  background: linear-gradient(180deg, rgba(92, 63, 154, 0.94), rgba(150, 70, 130, 0.94));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  text-align: center;
+}
+
+.menu-card h2 {
+  margin: 0 0 4px;
+  color: #fff6e6;
+  font-size: clamp(26px, 8vmin, 48px);
+}
+
+.menu-btn {
+  min-height: clamp(44px, 11vmin, 64px);
+  border-radius: 18px;
+  border: 2px solid rgba(255, 240, 200, 0.7);
+  background: linear-gradient(180deg, #ffd37d, #ff9a6b);
+  color: #4a2350;
+  font: 800 clamp(16px, 4.4vmin, 24px) "Nunito", "Trebuchet MS", system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.menu-btn.alt {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff6e6;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.menu-btn:active { transform: scale(0.97); filter: brightness(1.1); }

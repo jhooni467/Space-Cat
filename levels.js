@@ -35,7 +35,8 @@
 
   SC.LEVELS = [
     {
-      name: 'Jardín de Luna',
+      name: 'Colinas del Atardecer',
+      theme: 'atardecer',
       width: 5400,
       start: { x: 90 },
       goal: { x: 5180 },

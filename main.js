@@ -24,7 +24,31 @@
     canvas.height = Math.round(cssH * dpr);
   }
 
+  var pauseMenu = document.getElementById('pauseMenu');
+  var portraitMQ = window.matchMedia ? window.matchMedia('(orientation: portrait)') : null;
+  var shown = '';
+
+  function isPortrait() {
+    return portraitMQ ? portraitMQ.matches : window.innerHeight > window.innerWidth;
+  }
+
+  // Mantiene los botones HTML (pausa / menú) acordes al estado del juego.
+  function syncUI() {
+    if (shown === game.state) return;
+    shown = game.state;
+    pauseMenu.classList.toggle('hidden', shown !== 'paused');
+    pauseBtn.classList.toggle('hidden', shown !== 'playing');
+  }
+
   function frame(ts) {
+    if (isPortrait()) {            // en vertical: se pausa y no se gasta batería
+      game.pause();
+      Input.releaseAll();
+      syncUI();
+      last = 0;
+      window.requestAnimationFrame(frame);
+      return;
+    }
     if (!last) last = ts;
     var dt = (ts - last) / 1000;
     last = ts;
@@ -32,20 +56,18 @@
     game.update(dt);
     SC.Render.draw(game.ctx, game);
     Input.endFrame();
+    syncUI();
     window.requestAnimationFrame(frame);
   }
 
   function boot() {
     resize();
     window.addEventListener('resize', resize);
-    window.addEventListener('orientationchange', function () { setTimeout(resize, 150); });
+    window.addEventListener('orientationchange', function () { Input.releaseAll(); setTimeout(resize, 150); });
 
     var isTouch = ('ontouchstart' in window) ||
       (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-    if (isTouch) {
-      touchUI.classList.remove('hidden');
-      pauseBtn.classList.remove('hidden');
-    }
+    if (isTouch) touchUI.classList.remove('hidden');
 
     Input.init(canvas);
     game = new SC.Game(canvas);
@@ -53,8 +75,15 @@
 
     // Si cambias de pestaña o app, el juego se pausa solo.
     document.addEventListener('visibilitychange', function () {
-      if (document.hidden && game.state === 'playing') game.state = 'paused';
+      if (document.hidden) game.pause();
       last = 0;
+    });
+
+    // Botones del menú de pausa.
+    pauseMenu.addEventListener('click', function (e) {
+      var act = e.target && e.target.getAttribute && e.target.getAttribute('data-menu');
+      if (act === 'resume') game.resume();
+      else if (act === 'restart') game.restartLevel();
     });
 
     window.requestAnimationFrame(frame);

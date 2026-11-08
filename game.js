@@ -48,6 +48,22 @@
     this.particles.length = 0;
   };
 
+  // Pausa real: la simulación (físicas, animaciones del mundo, tiempo) no avanza en 'paused'.
+  Game.prototype.pause = function () {
+    if (this.state !== 'playing') return;
+    this.state = 'paused';
+    Input.releaseAll(); // evita direcciones "pegadas" al volver
+  };
+  Game.prototype.resume = function () {
+    if (this.state === 'paused') { this.state = 'playing'; Input.releaseAll(); }
+  };
+  Game.prototype.restartLevel = function () {
+    this.restartRun();
+    this.state = 'playing';
+    Input.releaseAll();
+    SC.Sfx.play('start');
+  };
+
   Game.prototype.showToast = function (msg) {
     this.toast = { text: msg, time: 1.8 };
   };
@@ -165,7 +181,7 @@
         this.updatePlaying(dt);
         break;
       case 'paused':
-        if (Input.pausePressed || Input.actionPressed) this.state = 'playing';
+        if (Input.pausePressed) this.resume(); // solo P/Esc o el menú reanudan
         break;
       case 'win':
         this.winTimer += dt;
@@ -181,7 +197,7 @@
   };
 
   Game.prototype.updatePlaying = function (dt) {
-    if (Input.pausePressed) { this.state = 'paused'; return; }
+    if (Input.pausePressed) { this.pause(); return; }
 
     var p = this.player;
     var L = this.level;
