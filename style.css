@@ -11,6 +11,7 @@ html, body {
   margin: 0;
   height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;   /* sin "tirar para recargar" ni rebote al jugar */
   background: #2a1838;
   font-family: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
 }
@@ -23,10 +24,17 @@ html, body {
   justify-content: center;
 }
 
+/* El lienzo llena toda la pantalla (su tamaño exacto lo fija main.js): sin bordes, sin barras negras. */
 canvas {
   display: block;
-  border-radius: 14px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* Sonda invisible: permite leer las zonas seguras del dispositivo (muescas, barras) desde JavaScript. */
+#safe {
+  position: fixed;
+  visibility: hidden;
+  pointer-events: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 /* ---------- Controles táctiles ---------- */

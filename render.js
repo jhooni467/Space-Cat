@@ -5,7 +5,9 @@
   var SC = global.SpaceCat = global.SpaceCat || {};
   var C = SC.CONFIG;
   var COL = C.COLORS;
-  var W = C.WIDTH, H = C.HEIGHT, GY = C.GROUND_Y, SH = C.SPIKE_H;
+  var View = SC.View;
+  var WH = C.WORLD_H, GY = C.GROUND_Y, SH = C.SPIKE_H;
+  var W = C.VIEW_W, H = WH, OY = 0, K = 1;   // se actualizan en cada draw() según la pantalla
   var TAU = Math.PI * 2;
   var FONT = '"Nunito","Trebuchet MS","Segoe UI",system-ui,sans-serif';
 
@@ -26,12 +28,36 @@
     ctx.closePath();
   }
 
-  function glow(ctx, x, y, r, rgb, a) {
-    var g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, 'rgba(' + rgb + ',' + a + ')');
+  /* ---------- sprites en caché ----------
+   * Los degradados y formas que se repiten cada fotograma se dibujan una sola vez en un lienzo oculto
+   * y después solo se copian (drawImage). Se vacían cuando cambia la escala de pantalla. */
+  var cache = { glows: {}, star: null, plats: {}, ast: [] };
+
+  function makeCanvas(w, h) {
+    var cv = global.document.createElement('canvas');
+    cv.width = Math.max(1, Math.ceil(w)); cv.height = Math.max(1, Math.ceil(h));
+    return cv;
+  }
+
+  function glowSprite(rgb) {
+    var sp = cache.glows[rgb];
+    if (sp) return sp;
+    sp = makeCanvas(96, 96);
+    var c = sp.getContext('2d');
+    var g = c.createRadialGradient(48, 48, 0, 48, 48, 48);
+    g.addColorStop(0, 'rgba(' + rgb + ',1)');
     g.addColorStop(1, 'rgba(' + rgb + ',0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    c.fillStyle = g; c.fillRect(0, 0, 96, 96);
+    return (cache.glows[rgb] = sp);
+  }
+
+  // Mismo resultado que un degradado radial de transparencia 'a' en el centro, pero sin crearlo cada fotograma.
+  function glow(ctx, x, y, r, rgb, a) {
+    if (a <= 0.01) return;
+    var pa = ctx.globalAlpha;
+    ctx.globalAlpha = pa * Math.min(1, a);
+    ctx.drawImage(glowSprite(rgb), x - r, y - r, r * 2, r * 2);
+    ctx.globalAlpha = pa;
   }
 
   function ellipse(ctx, x, y, rx, ry) {
@@ -81,32 +107,7 @@
   }
 
   /* ---------- fondo ---------- */
-  var bgStars = [];
-  (function () {
-    for (var i = 0; i < 120; i++) {
-      bgStars.push({
-        x: hash(i) * W, y: hash(i + 500) * H * 0.72,
-        r: 0.6 + hash(i + 900) * 1.4, p: i % 2 ? 0.05 : 0.12,
-        sp: 1 + hash(i + 1300) * 2, ph: hash(i + 1700) * TAU
-      });
-    }
-  })();
-
-  function hills(ctx, cam, par, base, amp, color, f1, f2, ph) {
-    ctx.beginPath();
-    ctx.moveTo(0, H);
-    for (var x = 0; x <= W; x += 10) {
-      var wx = x + cam * par;
-      ctx.lineTo(x, base + Math.sin(wx * f1 + ph) * amp + Math.sin(wx * f2 + ph * 2) * amp * 0.5);
-    }
-    ctx.lineTo(W, H);
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
-  }
-
   function drawBackground(ctx, cam, t, theme) {
-    var i;
     var img = SC.Assets.get('background');
     if (img) {
       var scale = H / img.height;
@@ -115,18 +116,17 @@
       for (var bx = off; bx < W; bx += iw) ctx.drawImage(img, bx, 0, iw + 1, H);
       return;
     }
-
     SC.Scenery.draw(ctx, cam, t, theme);
   }
 
   /* ---------- decoración ---------- */
   var FLOWER_COLORS = ['#ffb3c7', '#ffe08a', '#c9bcff', '#a6ecd6'];
 
-  function drawDecor(ctx, d, t) {
+  function drawDecor(ctx, d, t, fx) {
     var i;
     if (d.kind === 'flower') {
       var h = 12 + d.r * 10;
-      var sway = Math.sin(t * 1.5 + d.x) * 1.6;
+      var sway = fx > 0 ? Math.sin(t * 1.5 + d.x) * 1.6 : 0;
       ctx.strokeStyle = '#6fcfae';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -134,37 +134,36 @@
       ctx.quadraticCurveTo(d.x + sway, GY - h / 2, d.x + sway, GY - h);
       ctx.stroke();
       ctx.fillStyle = FLOWER_COLORS[d.c];
+      ctx.beginPath();
       for (i = 0; i < 5; i++) {
-        var a = i * TAU / 5;
-        ctx.beginPath();
-        ctx.arc(d.x + sway + Math.cos(a) * 3.6, GY - h + Math.sin(a) * 3.6, 3.1, 0, TAU);
-        ctx.fill();
+        var a = i * TAU / 5, px = d.x + sway + Math.cos(a) * 3.6, py = GY - h + Math.sin(a) * 3.6;
+        ctx.moveTo(px + 3.1, py); ctx.arc(px, py, 3.1, 0, TAU);
       }
+      ctx.fill();
       ctx.fillStyle = COL.cream;
       ctx.beginPath(); ctx.arc(d.x + sway, GY - h, 2.4, 0, TAU); ctx.fill();
     } else if (d.kind === 'grass') {
       ctx.strokeStyle = '#6fcfae';
       ctx.lineWidth = 2.2;
       ctx.lineCap = 'round';
+      ctx.beginPath();
       for (i = -1; i <= 1; i++) {
-        var sw = Math.sin(t * 1.8 + d.x + i) * 1.5;
-        ctx.beginPath();
+        var sw = fx > 0 ? Math.sin(t * 1.8 + d.x + i) * 1.5 : 0;
         ctx.moveTo(d.x + i * 4, GY + 2);
         ctx.quadraticCurveTo(d.x + i * 5 + sw, GY - 7, d.x + i * 7 + sw, GY - 12 - Math.abs(i) * -2);
-        ctx.stroke();
       }
+      ctx.stroke();
     } else if (d.kind === 'mushroom') {
       ctx.fillStyle = COL.cream;
       rr(ctx, d.x - 3, GY - 8, 6, 10, 3); ctx.fill();
       ctx.fillStyle = '#ff9a9a';
       ctx.beginPath(); ctx.ellipse(d.x, GY - 8, 9, 7, 0, Math.PI, TAU); ctx.closePath(); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.beginPath(); ctx.arc(d.x - 3, GY - 12, 1.7, 0, TAU); ctx.fill();
-      ctx.beginPath(); ctx.arc(d.x + 3, GY - 11, 1.3, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(d.x - 3, GY - 12, 1.7, 0, TAU); ctx.moveTo(d.x + 4.3, GY - 11); ctx.arc(d.x + 3, GY - 11, 1.3, 0, TAU); ctx.fill();
     } else if (d.kind === 'lantern') {
       ctx.fillStyle = COL.platBody;
       rr(ctx, d.x - 1.5, GY - 46, 3, 49, 1.5); ctx.fill();
-      glow(ctx, d.x, GY - 52, 48, '255,217,138', 0.30 + 0.07 * Math.sin(t * 3 + d.x));
+      if (fx > 0) glow(ctx, d.x, GY - 52, 48, '255,217,138', 0.30 + 0.07 * Math.sin(t * 3 + d.x));
       ctx.fillStyle = '#ffe9b0';
       ctx.beginPath(); ctx.arc(d.x, GY - 52, 6.5, 0, TAU); ctx.fill();
     }
@@ -215,120 +214,176 @@
   function drawStart(ctx, L) {
     ctx.fillStyle = 'rgba(159,232,208,0.55)';
     ellipse(ctx, L.start.x + 16, GY + 1, 38, 5); ctx.fill();
-    drawSign(ctx, 170, 'A');
+    drawSign(ctx, L.start.x - 110, 'A');
   }
 
   /* ---------- terreno ---------- */
+  var groundGrad = null;
+
   function drawGround(ctx, L, cam) {
     var i, j;
+    if (!groundGrad) {
+      groundGrad = ctx.createLinearGradient(0, GY, 0, WH);
+      groundGrad.addColorStop(0, COL.groundBody);
+      groundGrad.addColorStop(1, COL.groundDeep);
+    }
+    var vl = cam - 24, vr = cam + W + 24;
     for (i = 0; i < L.ground.length; i++) {
       var s = L.ground[i];
-      if (s.x > cam + W + 40 || s.x + s.w < cam - 40) continue;
-      var g = ctx.createLinearGradient(0, s.y, 0, H);
-      g.addColorStop(0, COL.groundBody);
-      g.addColorStop(1, COL.groundDeep);
-      ctx.fillStyle = g;
-      rr(ctx, s.x, s.y, s.w, s.h + 40, 18); ctx.fill();
-      // piedritas decorativas
+      if (s.x > vr || s.x + s.w < vl) continue;
+      // solo se dibuja la parte visible (los tramos de suelo pueden medir miles de píxeles)
+      var x0 = Math.max(s.x, vl), x1 = Math.min(s.x + s.w, vr), w = x1 - x0;
+      ctx.fillStyle = groundGrad;
+      rr(ctx, x0, s.y, w, s.h + 40 + C.BOTTOM_RESERVE + 20, 18); ctx.fill();
+      // piedritas decorativas (un solo trazo)
       ctx.fillStyle = 'rgba(255,255,255,0.08)';
-      var from = Math.max(s.x + 20, Math.floor(cam / 70) * 70);
-      for (j = from; j < Math.min(s.x + s.w - 20, cam + W + 70); j += 70) {
+      ctx.beginPath();
+      for (j = Math.max(Math.ceil((s.x + 20) / 70) * 70, Math.floor(vl / 70) * 70); j < Math.min(s.x + s.w - 20, vr + 70); j += 70) {
         var k = Math.round(j / 70);
-        ctx.beginPath();
-        ctx.ellipse(j + hash(k) * 30, s.y + 34 + hash(k + 9) * 40, 5 + hash(k + 3) * 6, 3 + hash(k + 4) * 3, 0, 0, TAU);
-        ctx.fill();
+        var ex = j + hash(k) * 30, ey = s.y + 34 + hash(k + 9) * 40, rx = 5 + hash(k + 3) * 6;
+        ctx.moveTo(ex + rx, ey);
+        ctx.ellipse(ex, ey, rx, 3 + hash(k + 4) * 3, 0, 0, TAU);
       }
+      ctx.fill();
       // capa de pasto/polvo lunar
       ctx.fillStyle = COL.groundTop;
-      rr(ctx, s.x, s.y, s.w, 16, 10); ctx.fill();
+      rr(ctx, x0, s.y, w, 16, 10); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.28)';
-      rr(ctx, s.x + 6, s.y + 3, Math.max(0, s.w - 12), 3, 2); ctx.fill();
+      rr(ctx, x0 + 6, s.y + 3, Math.max(0, w - 12), 3, 2); ctx.fill();
     }
   }
 
-  function drawPlatform(ctx, p, top, body, t) {
-    if (p.kind === 'mover') {
+  // Cada tamaño de plataforma se dibuja una vez y luego se copia.
+  function platSprite(w, kind) {
+    var key = kind + w;
+    var sp = cache.plats[key];
+    if (sp) return sp;
+    var mover = kind === 'mover';
+    var top = mover ? COL.moverTop : COL.platTop, body = mover ? COL.moverBody : COL.platBody;
+    sp = makeCanvas((w + 4) * K, 22 * K);
+    var c = sp.getContext('2d');
+    c.setTransform(K, 0, 0, K, 0, 0);
+    c.translate(2, 2);
+    c.fillStyle = body;
+    rr(c, 0, 0, w, 18, 9); c.fill();
+    c.fillStyle = top;
+    rr(c, 0, 0, w, 10, 9); c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.35)';
+    rr(c, 8, 2, Math.max(0, w - 16), 2.5, 1.5); c.fill();
+    return (cache.plats[key] = sp);
+  }
+
+  function drawPlatform(ctx, p, t, fx) {
+    if (p.kind === 'mover' && fx > 0) {
       glow(ctx, p.x + p.w / 2, p.y + p.h + 10, p.w * 0.7, '159,232,208', 0.22);
     }
-    ctx.fillStyle = body;
-    rr(ctx, p.x, p.y, p.w, p.h, 9); ctx.fill();
-    ctx.fillStyle = top;
-    rr(ctx, p.x, p.y, p.w, 10, 9); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    rr(ctx, p.x + 8, p.y + 2, Math.max(0, p.w - 16), 2.5, 1.5); ctx.fill();
+    ctx.drawImage(platSprite(p.w, p.kind), p.x - 2, p.y - 2, p.w + 4, 22);
     if (p.kind === 'mover') {
       var a = 0.55 + 0.35 * Math.sin(t * 6);
       ctx.fillStyle = 'rgba(255,240,194,' + a + ')';
-      ctx.beginPath(); ctx.arc(p.x + 16, p.y + p.h + 4, 3, 0, TAU); ctx.fill();
-      ctx.beginPath(); ctx.arc(p.x + p.w - 16, p.y + p.h + 4, 3, 0, TAU); ctx.fill();
+      ctx.beginPath();
+      ctx.arc(p.x + 16, p.y + p.h + 4, 3, 0, TAU);
+      ctx.moveTo(p.x + p.w - 13, p.y + p.h + 4); ctx.arc(p.x + p.w - 16, p.y + p.h + 4, 3, 0, TAU);
+      ctx.fill();
     }
   }
 
-  function drawSpikes(ctx, s) {
+  function drawSpikes(ctx, s, fx) {
     var n = Math.max(1, Math.round(s.w / 30));
-    var cw = s.w / n;
-    glow(ctx, s.x + s.w / 2, GY - 12, s.w * 0.75, '255,140,140', 0.14);
-    for (var i = 0; i < n; i++) {
-      var x0 = s.x + i * cw;
-      var h = SH - (i % 2) * 6;
-      ctx.beginPath();
-      ctx.moveTo(x0, GY + 1);
-      ctx.lineTo(x0 + cw / 2, GY - h);
-      ctx.lineTo(x0 + cw, GY + 1);
-      ctx.closePath();
-      ctx.fillStyle = COL.spike;
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x0 + cw / 2, GY - h);
-      ctx.lineTo(x0 + cw, GY + 1);
-      ctx.lineTo(x0 + cw / 2, GY + 1);
-      ctx.closePath();
-      ctx.fillStyle = COL.spikeDark;
-      ctx.fill();
-      ctx.strokeStyle = COL.spikeLight;
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(x0 + cw * 0.28, GY - h * 0.42);
-      ctx.lineTo(x0 + cw / 2 - 2, GY - h + 7);
-      ctx.stroke();
+    var cw = s.w / n, i, x0, h;
+    if (fx > 0) glow(ctx, s.x + s.w / 2, GY - 12, s.w * 0.75, '255,140,140', 0.14);
+    // tres trazos en total (cuerpo, sombra, brillo) en vez de uno por triángulo
+    ctx.beginPath();
+    for (i = 0; i < n; i++) {
+      x0 = s.x + i * cw; h = SH - (i % 2) * 6;
+      ctx.moveTo(x0, GY + 1); ctx.lineTo(x0 + cw / 2, GY - h); ctx.lineTo(x0 + cw, GY + 1); ctx.closePath();
     }
+    ctx.fillStyle = COL.spike; ctx.fill();
+    ctx.beginPath();
+    for (i = 0; i < n; i++) {
+      x0 = s.x + i * cw; h = SH - (i % 2) * 6;
+      ctx.moveTo(x0 + cw / 2, GY - h); ctx.lineTo(x0 + cw, GY + 1); ctx.lineTo(x0 + cw / 2, GY + 1); ctx.closePath();
+    }
+    ctx.fillStyle = COL.spikeDark; ctx.fill();
+    ctx.strokeStyle = COL.spikeLight;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (i = 0; i < n; i++) {
+      x0 = s.x + i * cw; h = SH - (i % 2) * 6;
+      ctx.moveTo(x0 + cw * 0.28, GY - h * 0.42); ctx.lineTo(x0 + cw / 2 - 2, GY - h + 7);
+    }
+    ctx.stroke();
   }
 
-  function drawAsteroid(ctx, a) {
-    var img = SC.Assets.get('asteroid');
-    ctx.save();
-    ctx.translate(a.cx, a.cy);
-    ctx.rotate(a.rot);
-    if (img) {
-      var d = a.r * 2.3;
-      ctx.drawImage(img, -d / 2, -d / 2, d, d);
-      ctx.restore();
-      return;
-    }
-    glow(ctx, 0, 0, a.r * 2.2, '255,190,200', 0.14);
-    ctx.beginPath();
+  // El asteroide (forma, degradado y cráteres) se dibuja una vez por asteroide; después solo se gira y se copia.
+  function asteroidSprite(a) {
+    if (a._spr && a._sprK === K) return a._spr;
+    var pad = 2, d = a.r * 2 + pad * 2;
+    var sp = makeCanvas(d * K, d * K), c = sp.getContext('2d');
+    c.setTransform(K, 0, 0, K, 0, 0);
+    c.translate(d / 2, d / 2);
+    c.beginPath();
     var pts = 9;
     for (var i = 0; i < pts; i++) {
       var ang = i * TAU / pts;
       var rad = a.r * (0.86 + 0.14 * hash(i + a.x0));
       var px = Math.cos(ang) * rad, py = Math.sin(ang) * rad;
-      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
     }
-    ctx.closePath();
-    var g = ctx.createRadialGradient(-a.r * 0.35, -a.r * 0.35, 2, 0, 0, a.r * 1.1);
+    c.closePath();
+    var g = c.createRadialGradient(-a.r * 0.35, -a.r * 0.35, 2, 0, 0, a.r * 1.1);
     g.addColorStop(0, '#d6bfcb');
     g.addColorStop(1, COL.asteroidDark);
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.fillStyle = 'rgba(80,60,90,0.28)';
-    ctx.beginPath(); ctx.arc(-a.r * 0.25, a.r * 0.2, a.r * 0.22, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.arc(a.r * 0.32, -a.r * 0.1, a.r * 0.16, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.arc(a.r * 0.05, a.r * 0.5, a.r * 0.12, 0, TAU); ctx.fill();
+    c.fillStyle = g;
+    c.fill();
+    c.fillStyle = 'rgba(80,60,90,0.28)';
+    c.beginPath();
+    c.arc(-a.r * 0.25, a.r * 0.2, a.r * 0.22, 0, TAU);
+    c.moveTo(a.r * 0.32 + a.r * 0.16, -a.r * 0.1); c.arc(a.r * 0.32, -a.r * 0.1, a.r * 0.16, 0, TAU);
+    c.moveTo(a.r * 0.05 + a.r * 0.12, a.r * 0.5); c.arc(a.r * 0.05, a.r * 0.5, a.r * 0.12, 0, TAU);
+    c.fill();
+    a._spr = sp; a._sprK = K; a._sprD = d;
+    return sp;
+  }
+
+  function drawAsteroid(ctx, a, fx) {
+    var img = SC.Assets.get('asteroid');
+    if (img) {
+      ctx.save();
+      ctx.translate(a.cx, a.cy);
+      ctx.rotate(a.rot);
+      var dd = a.r * 2.3;
+      ctx.drawImage(img, -dd / 2, -dd / 2, dd, dd);
+      ctx.restore();
+      return;
+    }
+    if (fx > 0) glow(ctx, a.cx, a.cy, a.r * 2.2, '255,190,200', 0.14);
+    var sp = asteroidSprite(a), d = a._sprD;
+    ctx.save();
+    ctx.translate(a.cx, a.cy);
+    ctx.rotate(a.rot);
+    ctx.drawImage(sp, -d / 2, -d / 2, d, d);
     ctx.restore();
   }
 
-  function drawStar(ctx, s, t) {
+  function starSprite() {
+    if (cache.star) return cache.star;
+    var sp = makeCanvas(40 * K, 40 * K), c = sp.getContext('2d');
+    c.setTransform(K, 0, 0, K, 0, 0);
+    starPath(c, 20, 20, 12, 0);
+    var g = c.createLinearGradient(0, 8, 0, 32);
+    g.addColorStop(0, COL.starLight);
+    g.addColorStop(1, COL.star);
+    c.fillStyle = g;
+    c.fill();
+    c.strokeStyle = 'rgba(255,255,255,0.7)';
+    c.lineWidth = 1.5;
+    c.stroke();
+    return (cache.star = sp);
+  }
+
+  function drawStar(ctx, s, t, fx) {
     var img = SC.Assets.get('star');
     var y = s.y + Math.sin(t * 3 + s.phase) * 3;
     var sc = 1 + Math.sin(t * 4 + s.phase) * 0.06;
@@ -337,22 +392,22 @@
       ctx.drawImage(img, s.x - 16 * sc, y - 16 * sc, 32 * sc, 32 * sc);
       return;
     }
-    starPath(ctx, s.x, y, 12 * sc, Math.sin(t * 2 + s.phase) * 0.12);
-    var g = ctx.createLinearGradient(0, y - 12, 0, y + 12);
-    g.addColorStop(0, COL.starLight);
-    g.addColorStop(1, COL.star);
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    var sp = starSprite();
+    if (fx > 1) {      // pequeño balanceo (solo calidad alta)
+      ctx.save();
+      ctx.translate(s.x, y);
+      ctx.rotate(Math.sin(t * 2 + s.phase) * 0.12);
+      ctx.drawImage(sp, -20 * sc, -20 * sc, 40 * sc, 40 * sc);
+      ctx.restore();
+    } else {
+      ctx.drawImage(sp, s.x - 20 * sc, y - 20 * sc, 40 * sc, 40 * sc);
+    }
   }
 
-  /* ---------- el gato (la apariencia vive en js/skins.js) ---------- */
+  /* ---------- el gato (la apariencia vive en skins.js) ---------- */
   function drawCat(ctx, p, t, state) {
     if (p.invuln > 0 && Math.floor(p.invuln * 12) % 2 === 0) return; // parpadeo tras un golpe
     var cx = p.x + p.w / 2, fy = p.y + p.h;
-    var moving = Math.abs(p.vx) > 30 && p.onGround;
     var air = !p.onGround;
 
     if (p.onGround) {
@@ -401,37 +456,45 @@
   }
 
   /* ---------- mundo completo ---------- */
+  // Las listas del nivel están ordenadas por x: con búsqueda binaria se salta todo lo que queda fuera de pantalla.
   function drawWorld(ctx, g, cam) {
-    var L = g.level, t = g.t, i;
+    var L = g.level, t = g.t, i, n, fx = SC.Perf.fx;
     var left = cam - 120, right = cam + W + 120;
+    var lb = SC.lowerBound;
 
-    drawStart(ctx, L);
-    drawGoal(ctx, L, t);
+    if (L.start.x + 60 > left && L.start.x - 170 < right) drawStart(ctx, L);
+    if (L.goal.x + 120 > left && L.goal.x - 160 < right) drawGoal(ctx, L, t);
     for (i = 0; i < L.checkpoints.length; i++) {
       if (L.checkpoints[i].x > left && L.checkpoints[i].x < right) drawCheckpoint(ctx, L.checkpoints[i], t);
     }
     drawGround(ctx, L, cam);
-    for (i = 0; i < L.decor.length; i++) {
-      if (L.decor[i].x > left && L.decor[i].x < right) drawDecor(ctx, L.decor[i], t);
+    for (n = L.decor.length, i = lb(L.decor, left); i < n; i++) {
+      if (L.decor[i].x > right) break;
+      drawDecor(ctx, L.decor[i], t, fx);
     }
-    for (i = 0; i < L.platforms.length; i++) {
+    for (n = L.platforms.length, i = lb(L.platforms, left - L.maxPlatW); i < n; i++) {
       var p = L.platforms[i];
-      if (p.x + p.w > left && p.x < right) drawPlatform(ctx, p, COL.platTop, COL.platBody, t);
+      if (p.x > right) break;
+      drawPlatform(ctx, p, t, fx);
     }
     for (i = 0; i < L.movers.length; i++) {
-      drawPlatform(ctx, L.movers[i], COL.moverTop, COL.moverBody, t);
+      drawPlatform(ctx, L.movers[i], t, fx);
     }
-    for (i = 0; i < L.spikes.length; i++) {
+    for (n = L.spikes.length, i = lb(L.spikes, left - 120); i < n; i++) {
       var s = L.spikes[i];
-      if (s.x + s.w > left && s.x < right) drawSpikes(ctx, s);
+      if (s.x > right) break;
+      drawSpikes(ctx, s, fx);
     }
-    for (i = 0; i < L.stars.length; i++) {
-      var st = L.stars[i];
-      if (!st.taken && g.state !== 'title' && st.x > left && st.x < right) drawStar(ctx, st, t);
+    if (g.state !== 'title') {
+      for (n = L.stars.length, i = lb(L.stars, left); i < n; i++) {
+        var st = L.stars[i];
+        if (st.x > right) break;
+        if (!st.taken) drawStar(ctx, st, t, fx);
+      }
     }
     for (i = 0; i < L.asteroids.length; i++) {
       var a = L.asteroids[i];
-      if (a.cx > left && a.cx < right) drawAsteroid(ctx, a);
+      if (a.cx > left && a.cx < right) drawAsteroid(ctx, a, fx);
     }
     for (i = 0; i < g.rings.length; i++) { // anillos del doble salto
       var rg = g.rings[i], k = rg.age / 0.4;
@@ -446,54 +509,83 @@
   }
 
   /* ---------- interfaz ---------- */
-  function drawHUD(ctx, g) {
-    var i;
+  // La parte fija del HUD (cápsulas, corazones, textos) se prepara en un lienzo oculto y solo se vuelve a dibujar
+  // cuando cambia algo (vidas, estrellas, segundos o tamaño). Cada fotograma solo se pinta la barra de progreso.
+  var hud = { cv: null, key: '', bx: 0, bw: 0, by: 34 };
+
+  function renderHudChrome(g) {
+    var hw = Math.ceil(W), hh = 70;
+    if (!hud.cv) hud.cv = makeCanvas(1, 1);
+    if (hud.cv.width !== Math.ceil(hw * K) || hud.cv.height !== Math.ceil(hh * K)) {
+      hud.cv.width = Math.ceil(hw * K); hud.cv.height = Math.ceil(hh * K);
+    }
+    var c = hud.cv.getContext('2d'), i;
+    c.setTransform(K, 0, 0, K, 0, 0);
+    c.clearRect(0, 0, hw, hh);
+    var x0 = 16 + View.sl, y0 = 14 + View.st;      // zonas seguras: no quedar bajo muescas ni barras
+
     // vidas
-    pill(ctx, 16, 14, 118, 40);
+    pill(c, x0, y0, 118, 40);
     for (i = 0; i < C.LIVES; i++) {
-      heartPath(ctx, 38 + i * 32, 24, 22);
-      ctx.fillStyle = i < g.lives ? COL.heart : 'rgba(255,255,255,0.18)';
-      ctx.fill();
+      heartPath(c, x0 + 22 + i * 32, y0 + 10, 22);
+      c.fillStyle = i < g.lives ? COL.heart : 'rgba(255,255,255,0.18)';
+      c.fill();
     }
     // estrellas
-    pill(ctx, 144, 14, 112, 40);
-    starPath(ctx, 170, 34, 11, 0);
-    ctx.fillStyle = COL.star;
-    ctx.fill();
-    text(ctx, g.collected + '/' + g.level.stars.length, 190, 35, 20, '800', COL.text, 'left');
+    pill(c, x0 + 128, y0, 112, 40);
+    starPath(c, x0 + 154, y0 + 20, 11, 0);
+    c.fillStyle = COL.star;
+    c.fill();
+    text(c, g.collected + '/' + g.level.stars.length, x0 + 174, y0 + 21, 20, '800', COL.text, 'left');
 
-    // progreso de A a B
-    var bx = 310, bw = 340, by = 34;
-    var L = g.level;
+    // progreso de A a B (el fondo; el relleno se dibuja cada fotograma)
+    var bw = Math.min(460, Math.max(300, W * 0.3)), bx = W / 2 - bw / 2, by = y0 + 20;
+    hud.bx = bx; hud.bw = bw; hud.by = by;
+    c.fillStyle = 'rgba(24,22,64,0.42)';
+    rr(c, bx - 30, y0, bw + 60, 40, 20); c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.20)';
+    rr(c, bx, by - 4, bw, 8, 4); c.fill();
+    text(c, 'A', bx - 15, by + 1, 16, '800', COL.text);
+    text(c, 'B', bx + bw + 15, by + 1, 16, '800', COL.text);
+
+    // tiempo (a la izquierda del botón de pausa)
+    var tr = W - View.pauseReserve;
+    pill(c, tr - 100, y0, 100, 40);
+    text(c, formatTime(g.elapsed), tr - 50, y0 + 21, 20, '800', COL.text);
+  }
+
+  function drawHUD(ctx, g) {
+    var key = g.lives + '|' + g.collected + '|' + Math.floor(g.elapsed) + '|' + W.toFixed(1) + '|' + K.toFixed(3) + '|' + View.sl.toFixed(1) + '|' + View.st.toFixed(1) + '|' + View.pauseReserve.toFixed(1);
+    if (key !== hud.key) { renderHudChrome(g); hud.key = key; }
+    ctx.drawImage(hud.cv, 0, 0, hud.cv.width / K, hud.cv.height / K);
+
+    var L = g.level, y0 = 14 + View.st, by = y0 + 20;
     var prog = (g.player.x - L.start.x) / (L.goal.x - L.start.x);
     prog = Math.max(0, Math.min(1, prog));
-    ctx.fillStyle = 'rgba(24,22,64,0.42)';
-    rr(ctx, bx - 30, 14, bw + 60, 40, 20); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.20)';
-    rr(ctx, bx, by - 4, bw, 8, 4); ctx.fill();
     ctx.fillStyle = COL.mint;
-    rr(ctx, bx, by - 4, Math.max(8, bw * prog), 8, 4); ctx.fill();
-    text(ctx, 'A', bx - 15, by + 1, 16, '800', COL.text);
-    text(ctx, 'B', bx + bw + 15, by + 1, 16, '800', COL.text);
+    rr(ctx, hud.bx, by - 4, Math.max(8, hud.bw * prog), 8, 4); ctx.fill();
     ctx.fillStyle = COL.cat;
-    ctx.beginPath(); ctx.arc(bx + bw * prog, by, 8, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(hud.bx + hud.bw * prog, by, 8, 0, TAU); ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.9)';
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(bx + bw * prog, by, 8, 0, TAU); ctx.stroke();
-
-    // tiempo
-    pill(ctx, W - 176, 14, 100, 40);
-    text(ctx, formatTime(g.elapsed), W - 126, 35, 20, '800', COL.text);
+    ctx.beginPath(); ctx.arc(hud.bx + hud.bw * prog, by, 8, 0, TAU); ctx.stroke();
 
     if (g.toast) {
       var a = Math.min(1, g.toast.time * 2.5);
       ctx.globalAlpha = a;
       ctx.font = '700 20px ' + FONT;
       var tw = ctx.measureText(g.toast.text).width + 44;
-      pill(ctx, W / 2 - tw / 2, 70, tw, 38);
-      text(ctx, g.toast.text, W / 2, 90, 20, '700', COL.text);
+      pill(ctx, W / 2 - tw / 2, y0 + 56, tw, 38);
+      text(ctx, g.toast.text, W / 2, y0 + 76, 20, '700', COL.text);
       ctx.globalAlpha = 1;
     }
+  }
+
+  function drawDebug(ctx) {
+    var P = SC.Perf;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(View.sl + 16, H - 52 - View.sb, 300, 40);
+    text(ctx, P.fps + ' fps · calidad ' + P.level + ' · ' + View.pxW + 'x' + View.pxH + ' px', View.sl + 26, H - 31 - View.sb, 15, '700', '#9fe8d0', 'left');
   }
 
   function dim(ctx, a) {
@@ -503,6 +595,8 @@
 
   function drawTitle(ctx, g) {
     dim(ctx, 0.5);
+    ctx.save();
+    ctx.translate(0, Math.round(OY * 0.5)); // en pantallas altas el contenido queda centrado
     glow(ctx, W / 2, 190, 280, '255,200,160', 0.22);
     ctx.font = '800 96px ' + FONT;
     text(ctx, 'Space Cat', W / 2 + 4, 154, 96, '800', 'rgba(30,20,70,0.55)');
@@ -513,13 +607,16 @@
     text(ctx, 'Lleva al gato del punto A al punto B', W / 2, 224, 24, '600', 'rgba(255,246,230,0.95)');
     var pulse = 0.65 + 0.35 * Math.sin(g.t * 3);
     ctx.globalAlpha = pulse;
-    text(ctx, 'Pulsa Enter o toca la pantalla para empezar', W / 2, 300, 24, '700', COL.text);
+    text(ctx, SC.touch ? 'Toca la pantalla para empezar' : 'Pulsa Enter o toca la pantalla para empezar', W / 2, 300, 24, '700', COL.text);
     ctx.globalAlpha = 1;
-    text(ctx, '← → mover   ·   Espacio / ↑ saltar   ·   P pausa   ·   M sonido', W / 2, 500, 17, '600', 'rgba(255,246,230,0.8)');
+    if (!SC.touch) text(ctx, '← → mover   ·   Espacio / ↑ saltar (dos veces = doble salto)   ·   P pausa   ·   M sonido   ·   F pantalla completa', W / 2, 500, 17, '600', 'rgba(255,246,230,0.8)');
+    else text(ctx, 'Toca ▲ dos veces en el aire para el doble salto', W / 2, 500, 17, '600', 'rgba(255,246,230,0.8)');
+    if (SC.PWA && SC.PWA.needsHomeScreen) text(ctx, 'Para pantalla completa: Compartir → Añadir a pantalla de inicio', W / 2, 468, 16, '600', 'rgba(255,246,230,0.8)');
     text(ctx, 'Beta ' + C.VERSION, W / 2, 262, 18, '700', 'rgba(255,246,230,0.75)');
     if (g.bestTime) {
       text(ctx, 'Mejor tiempo: ' + formatTime(g.bestTime), W / 2, 340, 18, '600', 'rgba(255,246,230,0.8)');
     }
+    ctx.restore();
   }
 
   function drawPause(ctx) {
@@ -528,6 +625,8 @@
 
   function drawWin(ctx, g) {
     dim(ctx, 0.5);
+    ctx.save();
+    ctx.translate(0, Math.round(OY * 0.5));
     var x = W / 2 - 270, y = 120;
     ctx.fillStyle = 'rgba(34,30,84,0.82)';
     rr(ctx, x, y, 540, 300, 28); ctx.fill();
@@ -546,20 +645,27 @@
     }
     if (g.winTimer > 0.8) {
       ctx.globalAlpha = 0.65 + 0.35 * Math.sin(g.t * 3);
-      text(ctx, 'Pulsa Enter o toca para jugar otra vez', W / 2, y + 262, 20, '700', COL.text);
+      text(ctx, SC.touch ? 'Toca para jugar otra vez' : 'Pulsa Enter o toca para jugar otra vez', W / 2, y + 262, 20, '700', COL.text);
       ctx.globalAlpha = 1;
     }
+    ctx.restore();
   }
 
   /* ---------- punto de entrada ---------- */
-  function draw(ctx, g) {
-    var k = ctx.canvas.width / W;
-    ctx.setTransform(k, 0, 0, k, 0, 0);
-    ctx.clearRect(0, 0, W, H);
+  var lastK = 0;
 
-    drawBackground(ctx, g.cam, g.t, g.level.theme);
+  function draw(ctx, g) {
+    W = View.w; H = View.h; OY = View.oy; K = ctx.canvas.width / W;
+    if (Math.abs(K - lastK) > 0.0005) {     // cambió la escala: se vacían los sprites para redibujarlos nítidos
+      cache.plats = {}; cache.star = null;
+      for (var i = 0; i < g.level.asteroids.length; i++) g.level.asteroids[i]._spr = null;
+      lastK = K;
+    }
+    ctx.setTransform(K, 0, 0, K, 0, 0);
+
+    drawBackground(ctx, g.cam, g.t, g.level.theme);   // cubre toda la pantalla: no hace falta borrarla antes
     ctx.save();
-    ctx.translate(-Math.round(g.cam), 0);
+    ctx.translate(-Math.round(g.cam * K) / K, OY);    // alineado a píxeles reales: sin temblor en el borde de los objetos
     drawWorld(ctx, g, g.cam);
     ctx.restore();
     SC.Scenery.drawMotes(ctx, g.cam, g.t, g.level.theme);
@@ -568,6 +674,7 @@
     if (g.state === 'title') drawTitle(ctx, g);
     else if (g.state === 'paused') drawPause(ctx);
     else if (g.state === 'win') drawWin(ctx, g);
+    if (SC.Perf.debug) drawDebug(ctx);
   }
 
   SC.Render = { draw: draw };

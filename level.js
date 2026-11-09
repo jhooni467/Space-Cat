@@ -14,6 +14,20 @@
 
   function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
 
+  function byX(a, b) { return a.x - b.x; }
+
+  // Primer índice de una lista ordenada por x cuyo x es >= v (búsqueda binaria).
+  // Sirve para saltarse de golpe todo lo que queda a la izquierda de la cámara o del gato.
+  function lowerBound(list, v) {
+    var lo = 0, hi = list.length;
+    while (lo < hi) {
+      var mid = (lo + hi) >> 1;
+      if (list[mid].x < v) lo = mid + 1; else hi = mid;
+    }
+    return lo;
+  }
+  SC.lowerBound = lowerBound;
+
   function Level(def) {
     this.name = def.name;
     this.theme = def.theme;
@@ -22,7 +36,7 @@
     this.goal = { x: def.goal.x, w: 80 };
 
     this.ground = def.ground.map(function (g) {
-      return { x: g[0], y: GY, w: g[1] - g[0], h: C.HEIGHT - GY, kind: 'ground' };
+      return { x: g[0], y: GY, w: g[1] - g[0], h: C.WORLD_H - GY, kind: 'ground' };
     });
     this.platforms = def.platforms.map(function (p) {
       return { x: p[0], y: p[1], w: p[2], h: 18, oneWay: true, kind: 'platform' };
@@ -51,12 +65,35 @@
       return { x: x, active: false };
     });
 
+    // Listas ordenadas por x: así el dibujo y las colisiones solo miran lo que está cerca.
+    this.platforms.sort(byX);
+    this.spikes.sort(byX);
+    this.stars.sort(byX);
+    this.asteroids.sort(function (a, b) { return a.x0 - b.x0; });
+    this.maxPlatW = this.platforms.reduce(function (m, p) { return Math.max(m, p.w); }, 0);
+
     // Todo lo que se puede pisar (los movers comparten referencia: al moverse, se actualizan solos).
     this.solids = this.ground.concat(this.platforms, this.movers);
+    this.staticSolids = this.ground.concat(this.platforms).sort(byX); // lo que no se mueve, ordenado por x
+    this._near = [];
+    this._got = [];
     this.decor = buildDecor(this);
     this.time = 0;
     this.resetState();
   }
+
+  // Sólidos cercanos al gato (colisiones). Se calcula una vez por frame y se reutiliza el mismo arreglo.
+  Level.prototype.nearSolids = function (px) {
+    var out = this._near, lo = px - 460, hi = px + 460, list = this.staticSolids, i, s;
+    out.length = 0;
+    for (i = 0; i < list.length; i++) {
+      s = list[i];
+      if (s.x > hi) break;
+      if (s.x + s.w >= lo) out.push(s);
+    }
+    for (i = 0; i < this.movers.length; i++) out.push(this.movers[i]); // pocos y siempre se mueven
+    return out;
+  };
 
   // Flores, hongos, faroles y pasto para que el mundo se vea acogedor.
   function buildDecor(L) {
@@ -72,7 +109,7 @@
       if (!inGround(gx)) continue;
       if (L.spikes.some(function (s) { return gx > s.x - 36 && gx < s.x + s.w + 36; })) continue;
       if (L.checkpoints.some(function (c) { return Math.abs(gx - c.x) < 30; })) continue;
-      if (Math.abs(gx - L.start.x) < 70 || Math.abs(gx - 170) < 40) continue;
+      if (Math.abs(gx - L.start.x) < 70 || Math.abs(gx - (L.start.x - 110)) < 40) continue;
       if (Math.abs(gx - L.goal.x) < 90 || Math.abs(gx - (L.goal.x - 110)) < 40) continue;
       var k = hash(i + 77);
       out.push({
@@ -123,16 +160,19 @@
     for (i = 0; i < this.asteroids.length; i++) this.placeAsteroid(this.asteroids[i], dt);
   };
 
-  // Devuelve 'spike', 'asteroid' o null.
+  // Devuelve 'spike', 'asteroid' o null. Solo revisa lo que está al alcance del gato.
   Level.prototype.hitHazard = function (p) {
     var bx = p.x + 4, by = p.y + 4, bw = p.w - 8, bh = p.h - 6; // caja un poco más chica = más justo
-    var i;
-    for (i = 0; i < this.spikes.length; i++) {
-      var s = this.spikes[i];
+    var i, list = this.spikes;
+    for (i = 0; i < list.length; i++) {
+      var s = list[i];
+      if (s.x > bx + bw + 8) break;               // ordenados por x: el resto queda más a la derecha
       if (bx < s.x + s.w - 8 && bx + bw > s.x + 8 && by < s.y + s.h && by + bh > s.y + 14) return 'spike';
     }
-    for (i = 0; i < this.asteroids.length; i++) {
-      var a = this.asteroids[i];
+    list = this.asteroids;
+    for (i = 0; i < list.length; i++) {
+      var a = list[i];
+      if (a.cx < bx - a.r - 4 || a.cx > bx + bw + a.r + 4) continue;
       var dx = a.cx - clamp(a.cx, bx, bx + bw);
       var dy = a.cy - clamp(a.cy, by, by + bh);
       var rr = a.r - 3;
@@ -141,12 +181,15 @@
     return null;
   };
 
-  // Recoge estrellas cerca del gato. Devuelve las que recogió.
+  // Recoge estrellas cerca del gato. Devuelve las que recogió (arreglo reutilizado: no lo guardes).
   Level.prototype.collectStars = function (p) {
-    var got = [];
+    var got = this._got;
+    got.length = 0;
     var cx = p.x + p.w / 2, cy = p.y + p.h / 2;
-    for (var i = 0; i < this.stars.length; i++) {
-      var s = this.stars[i];
+    var list = this.stars;
+    for (var i = lowerBound(list, cx - 26); i < list.length; i++) {
+      var s = list[i];
+      if (s.x > cx + 26) break;
       if (s.taken) continue;
       var dx = cx - s.x, dy = cy - s.y;
       if (dx * dx + dy * dy < 26 * 26) { s.taken = true; got.push(s); }

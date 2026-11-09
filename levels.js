@@ -11,6 +11,14 @@
  *  stars:       estrellas coleccionables [x, y] (abajo hay ayudas para hacer arcos).
  *  checkpoints: posiciones x de los faroles de punto de control.
  *  goal:        posición x del portal del punto B.
+ *
+ * GUÍA DE DISTANCIAS (Beta 0.2) — medidas con el salto actual (ver config.js):
+ *  - Salto simple: sube ~110 px. Doble salto: sube hasta ~213 px (cómodo hasta ~190).
+ *  - Plataformas que se alcanzan con salto simple: hasta ~85 px sobre su superficie (y ≥ 365 sobre el suelo).
+ *  - Plataformas / puentes que EXIGEN doble salto: entre 160 y 185 px sobre el suelo (y entre 265 y 290).
+ *  - Huecos: salto simple cómodo hasta ~150 px · con doble salto cómodo hasta ~240 px · más: usa un mover.
+ *  - Entre un grupo de obstáculos y el siguiente deja ≥ 300 px; tras un aterrizaje ≥ 220 px libres.
+ *  Comprueba el nivel con:  node tests/validate-level.js
  */
 (function (global) {
   'use strict';
@@ -37,68 +45,73 @@
     {
       name: 'Colinas del Atardecer',
       theme: 'atardecer',
-      width: 5400,
-      start: { x: 90 },
-      goal: { x: 5180 },
+      width: 8440,
+      start: { x: 340 },     // el gato empieza algo adentro: así los botones táctiles no lo tapan
+      goal: { x: 8240 },
 
+      //            G1          hueco 1 (con piedra)   G2           hueco 2      G3
       ground: [
-        [0, 900], [1020, 1700], [1860, 2600],
-        [2760, 3500], [3700, 4500], [4640, 5400]
+        [0, 1560], [1790, 3320], [3470, 5300],
+        // hueco 3 (280 px: exige doble salto)  G4       hueco 4 (mover)   G5a          hueco 5     G6
+        [5580, 6220], [6540, 7390], [7530, 8440]
       ],
 
       platforms: [
-        [380, 355, 140],
-        [1180, 340, 120], [1360, 290, 110],
-        [1745, 420, 70],
-        [2330, 350, 120],
-        [2655, 420, 60],
-        [3040, 330, 120],
-        [4535, 425, 70],
-        [4800, 350, 110], [4960, 300, 100]
+        [700, 372, 140],            // primera plataforma baja (salto simple)
+        [1630, 428, 70],            // piedra en medio del hueco 1
+        // Primera plataforma ALTA: solo se alcanza con doble salto
+        [2610, 285, 150],
+        // Puente de estrellas: tres plataformas altas seguidas
+        [4330, 275, 120], [4520, 275, 120], [4710, 275, 120],
+        // Plataforma alta cerca del final
+        [7640, 285, 140]
       ],
 
       movers: [
-        { x: 3505, y: 430, w: 90, axis: 'x', range: 105, speed: 1.1 }
+        { x: 6290, y: 430, w: 100, axis: 'x', range: 130, speed: 1.1 }
       ],
 
       spikes: [
-        [560, 60], [1320, 70], [1500, 90], [2050, 60], [2250, 100],
-        [2950, 60], [3150, 60], [3250, 60], [3900, 90], [4200, 60]
+        [1160, 60], [2150, 90], [3900, 60], [6920, 90], [7940, 60]
       ],
 
       asteroids: [
-        { x: 780, y: 300, r: 20, axis: 'y', range: 50, speed: 1.2 },
-        { x: 1780, y: 300, r: 20, axis: 'y', range: 40, speed: 1.6 },
-        { x: 2440, y: 270, r: 22, axis: 'x', range: 80, speed: 1.2 },
-        { x: 3600, y: 280, r: 22, axis: 'y', range: 50, speed: 1.5 },
-        { x: 4080, y: 330, r: 22, axis: 'x', range: 55, speed: 1.3 },
-        { x: 4900, y: 290, r: 24, axis: 'y', range: 70, speed: 1.1 }
+        { x: 3395, y: 290, r: 20, axis: 'y', range: 45, speed: 1.1 },   // sobre el hueco 2
+        { x: 3930, y: 300, r: 20, axis: 'y', range: 40, speed: 1.4 },   // sobre los cristales
+        { x: 6965, y: 295, r: 22, axis: 'x', range: 60, speed: 1.2 },
+        { x: 7970, y: 300, r: 22, axis: 'y', range: 45, speed: 1.3 }
       ],
 
       stars: [].concat(
-        arc(380, 310, 4, 40, 25),
-        arc(545, 375, 5, 36, 60),
-        arc(905, 390, 4, 38, 70),
-        row(1200, 305, 3, 40),
-        row(1380, 255, 3, 40),
-        arc(1490, 380, 6, 36, 70),
-        arc(1700, 395, 5, 38, 60),
-        arc(2040, 385, 5, 36, 60),
-        arc(2240, 375, 7, 36, 80),
-        row(2350, 315, 3, 40),
-        arc(2610, 390, 5, 35, 60),
-        arc(2940, 380, 4, 35, 60),
-        row(3040, 295, 3, 40),
-        arc(3140, 375, 8, 36, 70),
-        row(3520, 350, 5, 38),
-        arc(3880, 385, 5, 36, 70),
-        arc(4180, 380, 5, 35, 60),
-        arc(4500, 390, 5, 35, 60),
-        row(4815, 310, 3, 36),
-        row(4975, 260, 3, 36)
+        arc(400, 400, 5, 42, 55),
+        row(720, 330, 3, 44),
+        arc(930, 400, 5, 42, 55),
+        arc(1190, 395, 5, 36, 65),      // sobre los primeros cristales
+        arc(1490, 395, 6, 42, 70),      // hueco 1
+        arc(1950, 400, 5, 40, 55),
+        arc(2125, 395, 5, 36, 70),      // cristales anchos
+        // camino de estrellas que guía el doble salto hacia la plataforma alta (trayectoria medida con el simulador)
+        [[2402, 420], [2448, 352], [2494, 321], [2540, 254], [2586, 222]],
+        row(2640, 243, 4, 36),
+        arc(3290, 395, 8, 32, 80),      // hueco 2
+        arc(3700, 400, 5, 40, 55),
+        arc(3880, 395, 5, 36, 70),
+        row(4345, 233, 3, 40), row(4535, 233, 3, 40), row(4725, 233, 3, 40),   // puente de estrellas
+        arc(4400, 405, 6, 44, 35),
+        arc(5000, 400, 5, 40, 55),
+        // camino de estrellas que guía el doble salto sobre el hueco 3 (280 px: el salto simple no llega)
+        [[5270, 350], [5325, 310], [5380, 262], [5430, 224], [5480, 232], [5530, 290], [5585, 380]],
+        row(5680, 400, 4, 44),
+        row(6640, 400, 4, 44),
+        arc(6905, 395, 5, 36, 70),
+        arc(7100, 400, 5, 40, 55),
+        arc(7370, 395, 6, 36, 70),      // hueco 5
+        row(7655, 243, 4, 36),
+        arc(7910, 395, 5, 36, 70),
+        row(8070, 400, 4, 44)
       ),
 
-      checkpoints: [1100, 1960, 2850, 3800, 4700]
+      checkpoints: [1880, 3580, 5690, 6640, 7640]
     }
   ];
 })(typeof window !== 'undefined' ? window : globalThis);

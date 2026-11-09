@@ -7,15 +7,22 @@
 
   SC.CONFIG = {
     VERSION: '0.2',
-    // Tamaño lógico del juego (formato horizontal 16:9). Se escala solo a la pantalla.
-    WIDTH: 960,
-    HEIGHT: 540,
+    // Mundo y vista (Beta 0.2). El mundo mide siempre WORLD_H de alto; la vista se adapta a la pantalla:
+    //  - VIEW_W: ancho del mundo que se ve de lado a lado (antes 960). La pantalla se llena SIN estirar nada:
+    //    si es más ancha de lo normal se ve más escenario; si es más cuadrada (tablet 4:3) se ve más cielo.
+    //  - MAX_PIXELS: tope de píxeles del lienzo. Evita pantallas retina enormes que ahogan tablets antiguas.
+    WORLD_H: 540,
+    VIEW_W: 1200,
+    MAX_VIEW_H: 820,        // alto máximo de la vista: en pantallas muy cuadradas no se llena todo de cielo vacío
+    BOTTOM_RESERVE: 64,     // en pantallas altas el suelo se eleva un poco para quedar sobre los botones táctiles
+    MAX_PIXELS: 1600000,
     GROUND_Y: 450,          // altura (y) de la superficie del suelo
     SPIKE_H: 34,            // altura de los cristales peligrosos
 
-    // Física: salto ligero y ágil (todos estos valores se pueden ajustar)
+    // Física: salto ligero y ágil (todos estos valores se pueden ajustar).
+    // Beta 0.2: el salto normal se redujo (antes ~180 px) para que el doble salto tenga sentido.
     STEP: 1 / 120,          // paso fijo de simulación: mismo salto en 30, 60, 120 o 144 fps
-    GRAVITY: 1500,
+    GRAVITY: 1650,
     FALL_MULT: 1.3,         // al caer la gravedad es mayor: se siente más ligero y preciso
     MAX_FALL: 920,
     MOVE_SPEED: 290,
@@ -25,12 +32,12 @@
     FRICTION_AIR: 700,
 
     // Salto
-    JUMP_SPEED: 740,        // salto desde el suelo (~180 px de altura)
-    JUMP2_SPEED: 640,       // segundo salto en el aire
+    JUMP_SPEED: 610,        // salto desde el suelo (~110 px de altura, unas 2,7 veces el alto del gato)
+    JUMP2_SPEED: 590,       // segundo salto en el aire (suma ~105 px: el doble salto llega a ~215 px)
     AIR_JUMPS: 1,           // saltos extra en el aire (1 = doble salto)
-    JUMP_MIN: 0.80,         // un toque rápido sube al menos esta fracción de la velocidad
+    JUMP_MIN: 0.62,         // un toque rápido sube al menos esta fracción de la velocidad
     JUMP_CUT: 1.6,          // gravedad extra si sueltas el botón mientras subes
-    JUMP_LATCH: 0.09,       // un toque cuenta como "mantenido" al menos este tiempo (s)
+    JUMP_LATCH: 0.07,       // un toque cuenta como "mantenido" al menos este tiempo (s)
     DOUBLE_GAP: 0.08,       // mínimo entre el 1.º y el 2.º salto (evita eventos duplicados)
     COYOTE_TIME: 0.12,      // margen para saltar justo después de salir del borde
     JUMP_BUFFER: 0.16,      // margen para pulsar salto un poco antes de aterrizar

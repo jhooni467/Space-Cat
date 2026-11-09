@@ -4,24 +4,37 @@
   var SC = window.SpaceCat;
   var C = SC.CONFIG;
   var Input = SC.Input;
+  var View = SC.View;
+  var Perf = SC.Perf;
 
   var canvas = document.getElementById('game');
   var touchUI = document.getElementById('touch');
   var pauseBtn = document.getElementById('pauseBtn');
+  var safeProbe = document.getElementById('safe');
   var game = null;
   var last = 0;
 
-  // Ajusta el lienzo a la pantalla manteniendo 16:9 y nitidez en pantallas retina.
+  // Zonas seguras (muescas de cámara, barras del sistema): el CSS las conoce, aquí se leen para el HUD.
+  function readSafe() {
+    if (!safeProbe || !window.getComputedStyle) return {};
+    var cs = window.getComputedStyle(safeProbe);
+    return {
+      t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0,
+      b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0
+    };
+  }
+
+  // El lienzo ocupa TODA la pantalla. La vista se adapta (ver view.js): no se estira, se ve más escenario o más cielo.
   function resize() {
-    var vw = window.innerWidth, vh = window.innerHeight;
-    var scale = Math.min(vw / C.WIDTH, vh / C.HEIGHT);
-    var cssW = Math.max(1, Math.floor(C.WIDTH * scale));
-    var cssH = Math.max(1, Math.floor(C.HEIGHT * scale));
-    var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.style.width = cssW + 'px';
-    canvas.style.height = cssH + 'px';
-    canvas.width = Math.round(cssW * dpr);
-    canvas.height = Math.round(cssH * dpr);
+    var vv = window.visualViewport;
+    var vw = Math.max(1, Math.round(vv && vv.width ? vv.width : window.innerWidth));
+    var vh = Math.max(1, Math.round(vv && vv.height ? vv.height : window.innerHeight));
+    View.update(vw, vh, Perf.res, readSafe());
+    canvas.style.width = vw + 'px';
+    canvas.style.height = vh + 'px';
+    // Cambiar width/height borra el lienzo: solo se hace si de verdad cambió.
+    if (canvas.width !== View.pxW) canvas.width = View.pxW;
+    if (canvas.height !== View.pxH) canvas.height = View.pxH;
   }
 
   var pauseMenu = document.getElementById('pauseMenu');
@@ -50,8 +63,11 @@
       return;
     }
     if (!last) last = ts;
-    var dt = (ts - last) / 1000;
+    var raw = ts - last;
+    var dt = raw / 1000;
     last = ts;
+    // Calidad automática: si el dispositivo va justo, baja resolución y adornos (nunca la jugabilidad).
+    if (Perf.frame(raw, game.state === 'playing')) resize();
     Input.poll();
     game.update(dt);
     SC.Render.draw(game.ctx, game);
@@ -61,13 +77,17 @@
   }
 
   function boot() {
-    resize();
-    window.addEventListener('resize', resize);
-    window.addEventListener('orientationchange', function () { Input.releaseAll(); setTimeout(resize, 150); });
-
     var isTouch = ('ontouchstart' in window) ||
       (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    SC.touch = !!isTouch;
     if (isTouch) touchUI.classList.remove('hidden');
+
+    resize();
+    window.addEventListener('resize', resize);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', function () { Input.releaseAll(); setTimeout(resize, 150); });
+    document.addEventListener('fullscreenchange', function () { setTimeout(resize, 80); });
+    document.addEventListener('webkitfullscreenchange', function () { setTimeout(resize, 80); });
 
     Input.init(canvas);
     game = new SC.Game(canvas);
@@ -77,6 +97,16 @@
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) game.pause();
       last = 0;
+    });
+
+    // Teclas de ayuda: F = pantalla completa, Q = cambiar calidad gráfica (para probar en equipos lentos).
+    window.addEventListener('keydown', function (e) {
+      if (e.repeat) return;
+      if (e.code === 'KeyF' && SC.Fullscreen) SC.Fullscreen.toggle();
+      else if (e.code === 'KeyQ') {
+        Perf.cycle(); resize();
+        game.showToast('Calidad gráfica: ' + ['alta', 'media', 'baja'][Perf.level]);
+      }
     });
 
     // Botones del menú de pausa.

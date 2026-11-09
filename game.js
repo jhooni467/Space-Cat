@@ -4,6 +4,8 @@
   var SC = global.SpaceCat = global.SpaceCat || {};
   var C = SC.CONFIG;
   var Input = SC.Input;
+  var View = SC.View;
+  var MAX_PARTICLES = 140;   // tope: evita ráfagas enormes que frenan dispositivos modestos
   var BEST_KEY = 'spacecat.best';
 
   function readBest() {
@@ -74,6 +76,9 @@
 
   /* ---------- partículas ---------- */
   Game.prototype.burst = function (x, y, n, colors, speed, gravity, star) {
+    var room = MAX_PARTICLES - this.particles.length;
+    if (SC.Perf && SC.Perf.fx === 0) n = Math.ceil(n / 2);   // calidad baja: menos chispas
+    if (n > room) n = room;
     for (var i = 0; i < n; i++) {
       var a = Math.random() * Math.PI * 2;
       var v = speed * (0.35 + Math.random() * 0.65);
@@ -88,6 +93,7 @@
   };
 
   Game.prototype.dust = function (x, y, n) {
+    if (this.particles.length >= MAX_PARTICLES) return;
     for (var i = 0; i < n; i++) {
       var life = 0.3 + Math.random() * 0.2;
       this.particles.push({
@@ -101,12 +107,12 @@
 
   Game.prototype.updateParticles = function (dt) {
     var r = this.rings;
-    for (var k = r.length - 1; k >= 0; k--) { r[k].age += dt; if (r[k].age > 0.4) r.splice(k, 1); }
+    for (var k = r.length - 1; k >= 0; k--) { r[k].age += dt; if (r[k].age > 0.4) { r[k] = r[r.length - 1]; r.pop(); } }
     var list = this.particles;
     for (var i = list.length - 1; i >= 0; i--) {
       var q = list[i];
       q.life -= dt;
-      if (q.life <= 0) { list.splice(i, 1); continue; }
+      if (q.life <= 0) { list[i] = list[list.length - 1]; list.pop(); continue; }   // quitar sin mover toda la lista
       q.vy += q.g * dt;
       q.x += q.vx * dt;
       q.y += q.vy * dt;
@@ -214,9 +220,10 @@
     var steps = Math.max(1, Math.ceil(dt / C.STEP - 1e-6));
     var sub = dt / steps;
     var jumped = false, landed = false, dbl = false;
+    var near = L.nearSolids(p.x);   // solo los sólidos cercanos: se calcula una vez por fotograma
     for (i = 0; i < steps; i++) {
       L.update(sub, p);
-      p.update(sub, i === 0 ? Input : this.subInput, L.solids, L.width);
+      p.update(sub, i === 0 ? Input : this.subInput, near, L.width);
       jumped = jumped || p.justJumped;
       landed = landed || p.justLanded;
       dbl = dbl || p.justDoubleJumped;
@@ -253,13 +260,13 @@
       var hit = L.hitHazard(p);
       if (hit) this.hurt(hit);
     }
-    if (p.y > C.HEIGHT + 60) this.hurt('fall');
+    if (p.y > C.WORLD_H + 60) this.hurt('fall');
 
     if (L.reachedGoal(p)) this.win();
 
     // Cámara que sigue al gato con suavidad.
-    var target = p.x + p.w / 2 - C.WIDTH * 0.4;
-    target = Math.max(0, Math.min(L.width - C.WIDTH, target));
+    var target = p.x + p.w / 2 - View.w * 0.4;
+    target = Math.max(0, Math.min(L.width - View.w, target));
     this.cam += (target - this.cam) * Math.min(1, dt * 6);
 
     this.updateParticles(dt);
