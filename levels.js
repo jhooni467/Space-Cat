@@ -13,10 +13,10 @@
  *  goal:        posición x del portal del punto B.
  *
  * GUÍA DE DISTANCIAS (Beta 0.2) — medidas con el salto actual (ver config.js):
- *  - Salto simple: sube ~110 px. Doble salto: sube hasta ~213 px (cómodo hasta ~190).
+ *  - Salto simple: sube ~110 px. Doble salto: sube hasta ~276 px (el segundo salto suma 1,5 veces el primero; cómodo hasta ~250).
  *  - Plataformas que se alcanzan con salto simple: hasta ~85 px sobre su superficie (y ≥ 365 sobre el suelo).
- *  - Plataformas / puentes que EXIGEN doble salto: entre 160 y 185 px sobre el suelo (y entre 265 y 290).
- *  - Huecos: salto simple cómodo hasta ~150 px · con doble salto cómodo hasta ~240 px · más: usa un mover.
+ *  - Plataformas / puentes que EXIGEN doble salto: entre 130 y 250 px sobre el suelo (las de ahora están a 165-175).
+ *  - Huecos: salto simple cómodo hasta ~150 px · con doble salto cómodo hasta ~280 px · más: usa un mover.
  *  - Entre un grupo de obstáculos y el siguiente deja ≥ 300 px; tras un aterrizaje ≥ 220 px libres.
  *  Comprueba el nivel con:  node tests/validate-level.js
  */

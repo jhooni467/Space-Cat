@@ -21,7 +21,7 @@
         [0.10, 340, 26, 'rgba(214,112,150,0.75)', 0.005, 0.012, 1.3],
         [0.22, 385, 22, 'rgba(160,84,140,0.9)', 0.008, 0.019, 4.1]
       ],
-      trees: [[0.40, 430, 1.0, '#8a4c86'], [0.62, 446, 1.35, '#5d3470']],
+      trees: [[0.40, 430, 1.0, '#8a4c86', '#6c3a72'], [0.62, 446, 1.35, '#5d3470', '#42225a']],   // [parallax, base, escala, color, color de la cara en sombra]
       motes: '#ffe9a8'
     }
   };
@@ -81,17 +81,23 @@
     c.fillStyle = th.cloudBody; c.beginPath();
     for (j = 0; j < parts.length; j++) { p = parts[j]; c.moveTo(p[0] + p[2], p[1]); c.arc(p[0], p[1], p[2], 0, TAU); }
     c.ellipse(0, 9, 58, 15, 0, 0, TAU); c.fill();
+    c.globalCompositeOperation = 'source-atop';           // panza de la nube en sombra: volumen
+    var cg = c.createLinearGradient(0, -40, 0, 26);
+    cg.addColorStop(0, 'rgba(255,230,210,0.12)'); cg.addColorStop(0.5, 'rgba(0,0,0,0)'); cg.addColorStop(1, 'rgba(110,30,100,0.38)');
+    c.fillStyle = cg; c.fillRect(-70, -42, 140, 70);
+    c.globalCompositeOperation = 'source-over';
     cache.cloud = cl;
   }
 
   /* ---------- capas que sí se mueven ---------- */
   function ridge(ctx, cam, L, W) {
-    ctx.beginPath(); ctx.moveTo(0, WH + EXTRA);
+    ctx.beginPath();
     for (var x = 0; x <= W + 14; x += 14) {
-      var wx = x + cam * L[0];
-      ctx.lineTo(x, L[1] + Math.sin(wx * L[4] + L[6]) * L[2] + Math.sin(wx * L[5] + L[6] * 2) * L[2] * 0.5);
+      var wx = x + cam * L[0], y = L[1] + Math.sin(wx * L[4] + L[6]) * L[2] + Math.sin(wx * L[5] + L[6] * 2) * L[2] * 0.5;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
-    ctx.lineTo(W + 14, WH + EXTRA); ctx.closePath(); ctx.fillStyle = L[3]; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,214,170,0.30)'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke();   // luz en la cresta
+    ctx.lineTo(W + 14, WH + EXTRA); ctx.lineTo(0, WH + EXTRA); ctx.closePath(); ctx.fillStyle = L[3]; ctx.fill();
   }
 
   function pines(ctx, cam, T, W) { // siluetas de pinos que se repiten con parallax (todas en un solo trazo)
@@ -108,6 +114,18 @@
         ctx.moveTo(x - ww, yy); ctx.lineTo(x, yy - h * 0.5); ctx.lineTo(x + ww, yy); ctx.closePath();
       }
       ctx.rect(x - 2, y - 4, 4, 6);
+    }
+    ctx.fill();
+    // cara en sombra (mitad derecha de cada piso): el árbol gana volumen
+    ctx.fillStyle = T[4];
+    ctx.beginPath();
+    for (k = first; k < first + W / step + 3; k++) {
+      var h2 = (46 + hash(k + par * 100) * 52) * sc, w2 = (15 + hash(k + 9) * 7) * sc;
+      var x2 = k * step + hash(k + 3) * 20 - cam * par;
+      for (var j2 = 0; j2 < 3; j2++) {
+        var yy2 = T[1] - h2 * (0.32 * j2), ww2 = w2 * (1.25 - j2 * 0.28);
+        ctx.moveTo(x2, yy2 - h2 * 0.5); ctx.lineTo(x2 + ww2, yy2); ctx.lineTo(x2, yy2); ctx.closePath();
+      }
     }
     ctx.fill();
   }

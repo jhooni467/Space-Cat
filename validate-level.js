@@ -93,7 +93,7 @@ SC.LEVELS.forEach((def, li) => {
   }
 
   // Alturas cómodas de cada plataforma sobre el suelo
-  const maxSingle = 110, maxDouble = 213;
+  const maxSingle = 110, maxDouble = 276;
   const singleSet = reach('single');
   const doubleSet = reach('double');
   console.log('\n  Plataformas (altura sobre el suelo → ¿cómo se alcanza?):');
@@ -103,7 +103,7 @@ SC.LEVELS.forEach((def, li) => {
     const how = s ? 'salto simple' : (d ? 'DOBLE salto' : 'INALCANZABLE');
     console.log('    x=' + String(p.x).padStart(5) + ' y=' + p.y + '  altura ' + String(h).padStart(3) + ' px → ' + how);
     if (!d) err('Plataforma inalcanzable en x=' + p.x);
-    if (h > 190) warn('Plataforma muy alta (' + h + ' px) en x=' + p.x + ': el doble salto cómodo llega a ~190');
+    if (h > 250) warn('Plataforma muy alta (' + h + ' px) en x=' + p.x + ': el doble salto cómodo llega a ~250');
   });
   // Las plataformas "altas" (≥140 px) NO deben alcanzarse con salto simple (ni por escaleras)
   L.platforms.forEach(p => {
@@ -138,7 +138,7 @@ SC.LEVELS.forEach((def, li) => {
     surfaces.forEach(f => { if (s.x > f.x && s.x < f.x + f.w && s.y > f.y - 12 && s.y < f.y + (f.h || 18) + 12) err('Estrella dentro de una plataforma en (' + s.x + ',' + s.y + ')'); });
     if (needed <= 0) nWalk++;
     else if (needed <= 98) nSingle++;
-    else if (needed <= 190) nDouble++;
+    else if (needed <= 250) nDouble++;
     else { nBad++; err('Estrella inalcanzable en (' + s.x + ',' + s.y + '), exige subir ' + Math.round(needed) + ' px'); }
   });
   console.log('\n  Estrellas: ' + L.stars.length + ' → caminando: ' + nWalk + ' · salto simple: ' + nSingle + ' · doble salto: ' + nDouble + ' · inalcanzables: ' + nBad);

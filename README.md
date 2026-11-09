@@ -6,7 +6,8 @@ Juego de plataformas 2D (HTML5 canvas). Sin dependencias ni instalación: abre `
 - **Sin conexión + PWA**: `sw.js` guarda el juego; `manifest.webmanifest` + `icons/` permiten instalarlo (Space Cat, standalone/pantalla completa, horizontal).
 - **Rendimiento**: dibujo con cachés, descarte de lo que no se ve, colisiones solo con lo cercano, calidad automática (`perf.js`).
 - **Vista**: pantalla completa sin barras negras y área visible más ancha (`view.js`, valores en `config.js`).
-- **Salto**: simple ≈110 px, doble ≈213 px. Nivel rediseñado con más espacio entre obstáculos y zonas que exigen doble salto.
+- **Salto**: simple ≈110 px; el segundo salto suma 1,5 veces el primero (doble ≈276 px). Se ajusta con `JUMP_SPEED` / `JUMP2_SPEED` en `config.js`.
+- **Botones táctiles** más grandes (CSS `.btn`) y **aspecto 3D** (volumen, sombras, primer plano con parallax) dibujado con sprites en caché. Nivel rediseñado con más espacio entre obstáculos y zonas que exigen doble salto.
 
 ## ⚠ Al cambiar archivos
 Sube `VERSION` en `sw.js` (si no, los dispositivos seguirán con la versión guardada). Si agregas un `.js`, añádelo a `CORE` en `sw.js` y a `index.html`.

@@ -245,11 +245,34 @@
         ctx.ellipse(ex, ey, rx, 3 + hash(k + 4) * 3, 0, 0, TAU);
       }
       ctx.fill();
-      // capa de pasto/polvo lunar
+      // borde con volumen (3D): sombra bajo el labio, labio frontal más oscuro y cara superior clara
+      ctx.fillStyle = 'rgba(10,20,15,0.34)';
+      rr(ctx, x0, s.y + 15, w, 14, 7); ctx.fill();
+      ctx.fillStyle = '#78b257';
+      rr(ctx, x0, s.y + 6, w, 13, 8); ctx.fill();
       ctx.fillStyle = COL.groundTop;
-      rr(ctx, x0, s.y, w, 16, 10); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.28)';
-      rr(ctx, x0 + 6, s.y + 3, Math.max(0, w - 12), 3, 2); ctx.fill();
+      rr(ctx, x0, s.y, w, 11, 8); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.34)';
+      rr(ctx, x0 + 6, s.y + 2, Math.max(0, w - 12), 3, 2); ctx.fill();
+      // paredes laterales: oscurecen el borde donde el suelo termina (los huecos se ven profundos)
+      if (x0 === s.x) drawEdge(ctx, s.x, s.y, 1);
+      if (x1 === s.x + s.w) drawEdge(ctx, s.x + s.w, s.y, -1);
+    }
+  }
+
+  var edgeSpr = null;
+  function drawEdge(ctx, x, y, dir) {
+    if (!edgeSpr) {
+      edgeSpr = makeCanvas(16, 4);
+      var c = edgeSpr.getContext('2d'), g = c.createLinearGradient(0, 0, 16, 0);
+      g.addColorStop(0, 'rgba(8,12,10,0.55)'); g.addColorStop(1, 'rgba(8,12,10,0)');
+      c.fillStyle = g; c.fillRect(0, 0, 16, 4);
+    }
+    if (dir > 0) ctx.drawImage(edgeSpr, x, y + 10, 22, 150);
+    else {         // el sprite oscurece su lado izquierdo: en el borde derecho se espeja
+      ctx.save(); ctx.translate(x, 0); ctx.scale(-1, 1);
+      ctx.drawImage(edgeSpr, 0, y + 10, 22, 150);
+      ctx.restore();
     }
   }
 
@@ -264,13 +287,31 @@
     var c = sp.getContext('2d');
     c.setTransform(K, 0, 0, K, 0, 0);
     c.translate(2, 2);
-    c.fillStyle = body;
+    c.fillStyle = body;                              // frente de la losa
     rr(c, 0, 0, w, 18, 9); c.fill();
-    c.fillStyle = top;
+    var sh = c.createLinearGradient(0, 4, 0, 18);    // el frente se oscurece hacia abajo (volumen)
+    sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(30,10,50,0.42)');
+    c.fillStyle = sh; rr(c, 0, 0, w, 18, 9); c.fill();
+    c.fillStyle = top;                               // cara de arriba, más clara
     rr(c, 0, 0, w, 10, 9); c.fill();
-    c.fillStyle = 'rgba(255,255,255,0.35)';
-    rr(c, 8, 2, Math.max(0, w - 16), 2.5, 1.5); c.fill();
+    c.fillStyle = 'rgba(60,20,50,0.22)';             // arista entre la cara de arriba y el frente
+    c.fillRect(6, 9.5, Math.max(0, w - 12), 1.4);
+    c.fillStyle = 'rgba(255,255,255,0.42)';
+    rr(c, 8, 1.6, Math.max(0, w - 16), 2.6, 1.3); c.fill();
     return (cache.plats[key] = sp);
+  }
+
+  // Sombra suave sobre el suelo, justo debajo de la plataforma (solo si hay suelo debajo).
+  function platShadow(ctx, p, L) {
+    if (p._sh === undefined) {
+      var cx = p.x + p.w / 2;
+      p._sh = L.ground.some(function (g) { return cx > g.x + 10 && cx < g.x + g.w - 10; });
+    }
+    if (!p._sh) return;
+    var hgt = GY - p.y, a = Math.max(0.10, 0.34 - hgt * 0.0008);
+    var pa = ctx.globalAlpha; ctx.globalAlpha = pa * a;
+    ctx.drawImage(glowSprite('20,10,50'), p.x - p.w * 0.1, GY - 3, p.w * 1.2, 13);
+    ctx.globalAlpha = pa;
   }
 
   function drawPlatform(ctx, p, t, fx) {
@@ -291,7 +332,12 @@
   function drawSpikes(ctx, s, fx) {
     var n = Math.max(1, Math.round(s.w / 30));
     var cw = s.w / n, i, x0, h;
-    if (fx > 0) glow(ctx, s.x + s.w / 2, GY - 12, s.w * 0.75, '255,140,140', 0.14);
+    if (fx > 0) {
+      glow(ctx, s.x + s.w / 2, GY - 12, s.w * 0.75, '255,140,140', 0.14);
+      var pa0 = ctx.globalAlpha; ctx.globalAlpha = pa0 * 0.45;      // sombra de contacto en el suelo
+      ctx.drawImage(glowSprite('20,10,50'), s.x - 8, GY - 3, s.w + 16, 11);
+      ctx.globalAlpha = pa0;
+    }
     // tres trazos en total (cuerpo, sombra, brillo) en vez de uno por triángulo
     ctx.beginPath();
     for (i = 0; i < n; i++) {
@@ -337,6 +383,10 @@
     g.addColorStop(1, COL.asteroidDark);
     c.fillStyle = g;
     c.fill();
+    var g2 = c.createRadialGradient(-a.r * 0.5, -a.r * 0.5, a.r * 0.3, -a.r * 0.2, -a.r * 0.2, a.r * 1.5);
+    g2.addColorStop(0, 'rgba(30,15,50,0)'); g2.addColorStop(1, 'rgba(30,15,50,0.6)');
+    c.fillStyle = g2; c.fill();                        // lado en sombra (volumen de esfera)
+    c.strokeStyle = 'rgba(255,225,240,0.35)'; c.lineWidth = 1.2; c.stroke();   // brillo del borde
     c.fillStyle = 'rgba(80,60,90,0.28)';
     c.beginPath();
     c.arc(-a.r * 0.25, a.r * 0.2, a.r * 0.22, 0, TAU);
@@ -371,14 +421,20 @@
     if (cache.star) return cache.star;
     var sp = makeCanvas(40 * K, 40 * K), c = sp.getContext('2d');
     c.setTransform(K, 0, 0, K, 0, 0);
+    starPath(c, 20, 20, 12, 0);                       // base
+    c.fillStyle = COL.star; c.fill();
+    var i, a1, a2, a3, R = 12, r = 6;                 // caras: por cada punta, una mitad clara y otra oscura
+    for (i = 0; i < 5; i++) {
+      a1 = -Math.PI / 2 + i * TAU / 5;                // punta
+      a2 = a1 - Math.PI / 5; a3 = a1 + Math.PI / 5;   // vértices interiores
+      c.beginPath(); c.moveTo(20, 20); c.lineTo(20 + Math.cos(a1) * R, 20 + Math.sin(a1) * R); c.lineTo(20 + Math.cos(a2) * r, 20 + Math.sin(a2) * r); c.closePath();
+      c.fillStyle = COL.starLight; c.fill();
+      c.beginPath(); c.moveTo(20, 20); c.lineTo(20 + Math.cos(a1) * R, 20 + Math.sin(a1) * R); c.lineTo(20 + Math.cos(a3) * r, 20 + Math.sin(a3) * r); c.closePath();
+      c.fillStyle = '#f2b45c'; c.fill();
+    }
     starPath(c, 20, 20, 12, 0);
-    var g = c.createLinearGradient(0, 8, 0, 32);
-    g.addColorStop(0, COL.starLight);
-    g.addColorStop(1, COL.star);
-    c.fillStyle = g;
-    c.fill();
-    c.strokeStyle = 'rgba(255,255,255,0.7)';
-    c.lineWidth = 1.5;
+    c.strokeStyle = 'rgba(255,255,255,0.75)';
+    c.lineWidth = 1.3; c.lineJoin = 'round';
     c.stroke();
     return (cache.star = sp);
   }
@@ -475,6 +531,7 @@
     for (n = L.platforms.length, i = lb(L.platforms, left - L.maxPlatW); i < n; i++) {
       var p = L.platforms[i];
       if (p.x > right) break;
+      if (fx > 0) platShadow(ctx, p, L);
       drawPlatform(ctx, p, t, fx);
     }
     for (i = 0; i < L.movers.length; i++) {
@@ -506,6 +563,24 @@
     ctx.globalAlpha = 1;
     drawParticles(ctx, g.particles);
     drawCat(ctx, g.player, g.t, g.state);
+  }
+
+  /* ---------- primer plano (profundidad) ----------
+   * Hojas oscuras en el borde inferior que se mueven MÁS rápido que el suelo: da sensación de profundidad 3D.
+   * Quedan por debajo de la línea del suelo, nunca tapan al gato. */
+  function drawForeground(ctx, cam) {
+    var par = 1.35, step = 58, first = Math.floor(cam * par / step) - 1, n = Math.ceil(W / step) + 3, k, j;
+    var base = H + 3;
+    ctx.fillStyle = 'rgba(14,26,22,0.92)';
+    ctx.beginPath();
+    for (k = first; k < first + n; k++) {
+      var x = k * step + hash(k + 21) * 30 - cam * par, h = 22 + hash(k + 5) * 30, lean = (hash(k + 8) - 0.5) * 18;
+      for (j = 0; j < 3; j++) {
+        var bx = x + j * 9, bh = h * (1 - j * 0.22);
+        ctx.moveTo(bx - 5, base); ctx.quadraticCurveTo(bx - 1, base - bh * 0.6, bx + lean, base - bh); ctx.quadraticCurveTo(bx + 2, base - bh * 0.5, bx + 5, base);
+      }
+    }
+    ctx.fill();
   }
 
   /* ---------- interfaz ---------- */
@@ -668,6 +743,7 @@
     ctx.translate(-Math.round(g.cam * K) / K, OY);    // alineado a píxeles reales: sin temblor en el borde de los objetos
     drawWorld(ctx, g, g.cam);
     ctx.restore();
+    if (SC.Perf.fx > 0) drawForeground(ctx, g.cam);
     SC.Scenery.drawMotes(ctx, g.cam, g.t, g.level.theme);
 
     if (g.state !== 'title') drawHUD(ctx, g);

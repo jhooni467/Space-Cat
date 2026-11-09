@@ -46,24 +46,28 @@ canvas {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  padding: 2vmin calc(3vmin + env(safe-area-inset-right)) calc(2vmin + env(safe-area-inset-bottom)) calc(3vmin + env(safe-area-inset-left));
+  padding: 0 calc(1vmin + env(safe-area-inset-right)) calc(0.5vmin + env(safe-area-inset-bottom)) calc(1vmin + env(safe-area-inset-left));
   pointer-events: none;
 }
 
+/* Beta 0.2: botones más grandes (≈ +40 %) y con zona táctil mayor que el dibujo:
+ * el .pad tiene margen táctil propio y cada botón se extiende unos píxeles invisibles a su alrededor. */
 .pad {
   display: flex;
-  gap: clamp(10px, 2.4vmin, 22px);
+  gap: clamp(12px, 2.8vmin, 26px);
+  padding: clamp(8px, 2vmin, 18px);
   pointer-events: auto;
 }
 
 .btn {
-  width: clamp(58px, 15vmin, 112px);
-  height: clamp(58px, 15vmin, 112px);
+  position: relative;
+  width: clamp(80px, 22vmin, 156px);
+  height: clamp(80px, 22vmin, 156px);
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.38);
-  background: rgba(40, 20, 60, 0.30);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  background: rgba(40, 20, 60, 0.38);
   color: #fff6e6;
-  font-size: clamp(22px, 5vmin, 38px);
+  font-size: clamp(30px, 8vmin, 58px);
   line-height: 1;
   padding: 0;
   cursor: pointer;
@@ -71,11 +75,19 @@ canvas {
   backdrop-filter: blur(4px);
 }
 
+.btn::before {            /* zona táctil invisible alrededor del botón */
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+}
+
 .btn.big {
-  width: clamp(74px, 20vmin, 144px);
-  height: clamp(74px, 20vmin, 144px);
-  background: rgba(255, 176, 103, 0.34);
-  border-color: rgba(255, 214, 170, 0.6);
+  width: clamp(104px, 29vmin, 200px);
+  height: clamp(104px, 29vmin, 200px);
+  font-size: clamp(38px, 10vmin, 72px);
+  background: rgba(255, 176, 103, 0.40);
+  border-color: rgba(255, 214, 170, 0.7);
 }
 
 .btn.active {

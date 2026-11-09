@@ -6,7 +6,7 @@
  *
  * ⚠ CADA VEZ QUE CAMBIES CUALQUIER ARCHIVO DEL JUEGO, SUBE EL NÚMERO DE VERSION.
  *   Así los dispositivos descargan la versión nueva; si no, seguirán con la guardada. */
-const VERSION = '0.2.0';
+const VERSION = '0.2.1';
 const CACHE = 'spacecat-' + VERSION;
 
 // Todo lo necesario para jugar (si agregas archivos .js, ponlos aquí también).

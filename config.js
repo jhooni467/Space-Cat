@@ -33,7 +33,7 @@
 
     // Salto
     JUMP_SPEED: 610,        // salto desde el suelo (~110 px de altura, unas 2,7 veces el alto del gato)
-    JUMP2_SPEED: 590,       // segundo salto en el aire (suma ~105 px: el doble salto llega a ~215 px)
+    JUMP2_SPEED: 747,       // segundo salto en el aire: sube 1,5 veces lo que sube el primero (~166 px más; con doble salto llega a ~277 px)
     AIR_JUMPS: 1,           // saltos extra en el aire (1 = doble salto)
     JUMP_MIN: 0.62,         // un toque rápido sube al menos esta fracción de la velocidad
     JUMP_CUT: 1.6,          // gravedad extra si sueltas el botón mientras subes
